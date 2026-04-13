@@ -105,7 +105,7 @@ model User {
   email        String? @unique
   passwordHash String  @map("password_hash")
 
-  // Passenger-only. Drivers/admins must have NULL — enforced at service layer.
+  // Passenger-only. Drivers/admins may have NULL — enforced at service layer.
   fid String? @unique
 
   lastLoginAt DateTime? @map("last_login_at")
@@ -199,7 +199,7 @@ model Wallet {
   userId String @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  balance Int @default(0) // santim (minor units, never negative)
+  balance Int @default(0) //never negative
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -216,7 +216,7 @@ model WalletTransaction {
 
   type         WalletTransactionType
   status       WalletTransactionStatus @default(PENDING)
-  amount       Int // santim, always positive; sign implied by type
+  amount       Int //always positive; sign implied by type
   balanceAfter Int?                    @map("balance_after")
 
   ticketId       String? @map("ticket_id")
@@ -294,7 +294,7 @@ model Fare {
   toStopId String @map("to_stop_id")
   toStop   Stop   @relation("FareToStop", fields: [toStopId], references: [id])
 
-  amount Int // santim
+  amount Int
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -322,7 +322,7 @@ model Ticket {
   dropoffStopId String @map("dropoff_stop_id")
   dropoffStop   Stop   @relation("TicketDropoffStop", fields: [dropoffStopId], references: [id])
 
-  fareAmount Int @map("fare_amount") // santim, snapshot at purchase time
+  fareAmount Int @map("fare_amount") // snapshot at purchase time
 
   status TicketStatus @default(ACTIVE)
 
