@@ -6,6 +6,7 @@ const envSchema = z.object({
   PORT: z.string().regex(/^\d+$/).transform(Number).default('3000'),
   API_PREFIX: z.string().default('api'),
   CORS_ORIGINS: z.string().default('*'), // comma-separated list in prod
+  IDEMPOTENCY_TTL_MS: z.string().regex(/^\d+$/).transform(Number).default('86400000'),
 
   // Database
   DATABASE_URL: z.string().url(),
@@ -27,10 +28,16 @@ const envSchema = z.object({
   QR_SIGNING_SECRET: z.string().min(32).optional(),
 
   // Jobs
-  ENABLE_CRON: z.string().transform((v) => v === 'true').default('false'),
+  ENABLE_CRON: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
 
   // Swagger
-  SWAGGER_ENABLED: z.string().transform((v) => v === 'true').default('true'),
+  SWAGGER_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
 });
 
 export type EnvironmentVariables = z.infer<typeof envSchema>;

@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import type { Request, Response } from 'express';
 import { Prisma } from '@prisma-generated/client';
@@ -10,15 +10,13 @@ import type { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 type IdempotentRequest = Request & { user?: JwtPayload; idempotencyKey?: string };
 
-const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
   private readonly logger = new Logger(IdempotencyInterceptor.name);
 
   constructor(
     private prisma: PrismaService,
-    private reflector: Reflector,
+    private config: ConfigService,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -31,13 +29,14 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const res = context.switchToHttp().getResponse<Response>();
     const endpoint = `${req.method} ${req.path}`;
     const requestHash = createHash('sha256').update(JSON.stringify(req.body)).digest('hex');
+    const ttlMs = this.config.get<number>('app.idempotencyTtlMs') ?? 24 * 60 * 60 * 1000;
 
     return next.handle().pipe(
       tap({
         next: (body: unknown) => {
           // Read statusCode after the handler has run
           const statusCode = res.statusCode || 200;
-          const expiresAt = new Date(Date.now() + TTL_MS);
+          const expiresAt = new Date(Date.now() + ttlMs);
 
           let responseBody: Prisma.InputJsonValue | Prisma.JsonNullValueInput = Prisma.JsonNull;
           try {
