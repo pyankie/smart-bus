@@ -7,6 +7,10 @@ const envSchema = z.object({
   API_PREFIX: z.string().default('api'),
   CORS_ORIGINS: z.string().default('*'), // comma-separated list in prod
   IDEMPOTENCY_TTL_MS: z.string().regex(/^\d+$/).transform(Number).default('86400000'),
+  OTP_TTL_MINUTES: z.string().regex(/^\d+$/).transform(Number).default('10'),
+  OTP_MAX_ATTEMPTS: z.string().regex(/^\d+$/).transform(Number).default('5'),
+  OTP_RESEND_SECONDS: z.string().regex(/^\d+$/).transform(Number).default('60'),
+  AUTH_CLOCK_SKEW_SECONDS: z.string().regex(/^\d+$/).transform(Number).default('30'),
 
   // Database
   DATABASE_URL: z.string().url(),
