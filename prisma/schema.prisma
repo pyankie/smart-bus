@@ -1,0 +1,476 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "generated/client"
+}
+
+// =====================================================================
+// ENUMS
+// =====================================================================
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+  PENDING_VERIFICATION
+}
+
+enum IdentifierType {
+  PHONE
+  EMAIL
+  FID
+}
+
+enum OtpPurpose {
+  REGISTRATION
+  PASSWORD_RESET
+}
+
+enum WalletTransactionType {
+  TOPUP
+  TICKET_PURCHASE
+  REFUND
+  ADJUSTMENT
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum TicketStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REFUNDED
+}
+
+enum TripStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ScanResult {
+  VALID
+  EXPIRED
+  ALREADY_USED
+  INVALID_SIGNATURE
+  INSPECTION_ONLY
+}
+
+enum NotificationChannel {
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOCKOUT
+  PASSWORD_RESET
+  LOGOUT
+}
+
+// =====================================================================
+// USERS  (one row per human, regardless of role)
+// =====================================================================
+
+model User {
+  id     String     @id @default(uuid())
+  role   UserRole
+  status UserStatus @default(PENDING_VERIFICATION)
+
+  fullName     String  @map("full_name")
+  phone        String  @unique
+  email        String? @unique
+  passwordHash String  @map("password_hash")
+
+  // Passenger-only. Drivers/admins must have NULL — enforced at service layer.
+  fid String? @unique
+
+  lastLoginAt DateTime? @map("last_login_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  wallet             Wallet?
+  refreshTokens      RefreshToken[]
+  otpCodes           OtpCode[]
+  authEvents         AuthSecurityEvent[]
+  ticketsAsPassenger Ticket[]            @relation("PassengerTickets")
+  scansAsDriver      ScanEvent[]         @relation("DriverScans")
+  tripsAsDriver      Trip[]              @relation("DriverTrips")
+  notifications      Notification[]
+  adminActions       AdminAction[]       @relation("AdminActor")
+
+  @@index([role, status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// =====================================================================
+// AUTH
+// =====================================================================
+
+model RefreshToken {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash    String    @unique @map("token_hash") // SHA-256 of the raw token
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model OtpCode {
+  id     String  @id @default(uuid())
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phone      String
+  codeHash   String     @map("code_hash") // SHA-256 of the OTP — never store raw
+  purpose    OtpPurpose
+  expiresAt  DateTime   @map("expires_at")
+  consumedAt DateTime?  @map("consumed_at")
+  attempts   Int        @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, purpose])
+  @@index([expiresAt])
+  @@map("otp_codes")
+}
+
+model AuthSecurityEvent {
+  id     String  @id @default(uuid())
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  identifier String
+  eventType  AuthEventType @map("event_type")
+  ipAddress  String?       @map("ip_address")
+  userAgent  String?       @map("user_agent")
+  metadata   Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([identifier, eventType, createdAt])
+  @@index([userId, eventType])
+  @@map("auth_security_events")
+}
+
+// =====================================================================
+// WALLET
+// =====================================================================
+
+model Wallet {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance Int @default(0) // santim (minor units, never negative)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id       String @id @default(uuid())
+  walletId String @map("wallet_id")
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  type         WalletTransactionType
+  status       WalletTransactionStatus @default(PENDING)
+  amount       Int // santim, always positive; sign implied by type
+  balanceAfter Int?                    @map("balance_after")
+
+  ticketId       String? @map("ticket_id")
+  externalRef    String? @map("external_ref")
+  idempotencyKey String? @unique @map("idempotency_key")
+
+  description String?
+  metadata    Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([walletId, createdAt])
+  @@index([type, status])
+  @@index([externalRef])
+  @@map("wallet_transactions")
+}
+
+// =====================================================================
+// ROUTES
+// =====================================================================
+
+model Route {
+  id          String  @id @default(uuid())
+  routeNumber String  @unique @map("route_number")
+  name        String
+  description String?
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  stops   Stop[]
+  fares   Fare[]
+  trips   Trip[]
+  tickets Ticket[]
+
+  @@index([isActive, deletedAt])
+  @@map("routes")
+}
+
+model Stop {
+  id      String @id @default(uuid())
+  routeId String @map("route_id")
+  route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  name      String
+  sequence  Int // 1-based ordering along the route
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  faresFrom       Fare[]   @relation("FareFromStop")
+  faresTo         Fare[]   @relation("FareToStop")
+  ticketsBoarding Ticket[] @relation("TicketBoardingStop")
+  ticketsDropoff  Ticket[] @relation("TicketDropoffStop")
+
+  @@unique([routeId, sequence])
+  @@index([routeId])
+  @@map("stops")
+}
+
+model Fare {
+  id      String @id @default(uuid())
+  routeId String @map("route_id")
+  route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  fromStopId String @map("from_stop_id")
+  fromStop   Stop   @relation("FareFromStop", fields: [fromStopId], references: [id])
+
+  toStopId String @map("to_stop_id")
+  toStop   Stop   @relation("FareToStop", fields: [toStopId], references: [id])
+
+  amount Int // santim
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([routeId, fromStopId, toStopId])
+  @@index([routeId])
+  @@map("fares")
+}
+
+// =====================================================================
+// TICKETS
+// =====================================================================
+
+model Ticket {
+  id          String @id @default(uuid())
+  passengerId String @map("passenger_id")
+  passenger   User   @relation("PassengerTickets", fields: [passengerId], references: [id])
+
+  routeId String @map("route_id")
+  route   Route  @relation(fields: [routeId], references: [id])
+
+  boardingStopId String @map("boarding_stop_id")
+  boardingStop   Stop   @relation("TicketBoardingStop", fields: [boardingStopId], references: [id])
+
+  dropoffStopId String @map("dropoff_stop_id")
+  dropoffStop   Stop   @relation("TicketDropoffStop", fields: [dropoffStopId], references: [id])
+
+  fareAmount Int @map("fare_amount") // santim, snapshot at purchase time
+
+  status TicketStatus @default(ACTIVE)
+
+  qrPayload   String @map("qr_payload")
+  qrSignature String @map("qr_signature")
+
+  purchasedAt DateTime  @default(now()) @map("purchased_at")
+  expiresAt   DateTime  @map("expires_at") // purchasedAt + 60 min
+  usedAt      DateTime? @map("used_at")
+  refundedAt  DateTime? @map("refunded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  scanEvents ScanEvent[]
+
+  @@index([passengerId, status])
+  @@index([status, expiresAt])
+  @@index([routeId])
+  @@map("tickets")
+}
+
+// =====================================================================
+// TRIPS
+// =====================================================================
+
+model Trip {
+  id      String @id @default(uuid())
+  routeId String @map("route_id")
+  route   Route  @relation(fields: [routeId], references: [id])
+
+  driverId String @map("driver_id")
+  driver   User   @relation("DriverTrips", fields: [driverId], references: [id])
+
+  busIdentifier String? @map("bus_identifier")
+
+  status       TripStatus @default(SCHEDULED)
+  startedAt    DateTime?  @map("started_at")
+  endedAt      DateTime?  @map("ended_at")
+  scheduledFor DateTime   @map("scheduled_for")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  scanEvents ScanEvent[]
+
+  @@index([driverId, status])
+  @@index([routeId, scheduledFor])
+  @@map("trips")
+}
+
+// =====================================================================
+// VALIDATION / SCAN EVENTS
+// =====================================================================
+
+model ScanEvent {
+  id       String @id @default(uuid())
+  ticketId String @map("ticket_id")
+  ticket   Ticket @relation(fields: [ticketId], references: [id])
+
+  driverId String @map("driver_id")
+  driver   User   @relation("DriverScans", fields: [driverId], references: [id])
+
+  tripId String? @map("trip_id")
+  trip   Trip?   @relation(fields: [tripId], references: [id])
+
+  result       ScanResult
+  isInspection Boolean    @default(false) @map("is_inspection")
+  isOffline    Boolean    @default(false) @map("is_offline")
+  scannedAt    DateTime   @map("scanned_at")
+  syncedAt     DateTime?  @map("synced_at")
+
+  metadata Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ticketId, scannedAt])
+  @@index([driverId, scannedAt])
+  @@index([tripId])
+  @@map("scan_events")
+}
+
+// =====================================================================
+// NOTIFICATIONS
+// =====================================================================
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel NotificationChannel
+  status  NotificationStatus  @default(PENDING)
+
+  title    String?
+  body     String
+  metadata Json?
+
+  sentAt        DateTime? @map("sent_at")
+  failureReason String?   @map("failure_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("notifications")
+}
+
+// =====================================================================
+// IDEMPOTENCY
+// =====================================================================
+
+model IdempotencyKey {
+  id     String  @id @default(uuid())
+  key    String  @unique
+  userId String? @map("user_id")
+
+  endpoint     String
+  requestHash  String @map("request_hash")
+  responseBody Json   @map("response_body")
+  statusCode   Int    @map("status_code")
+
+  expiresAt DateTime @map("expires_at") // createdAt + 24h
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+// =====================================================================
+// ADMIN AUDIT
+// =====================================================================
+
+model AdminAction {
+  id      String @id @default(uuid())
+  actorId String @map("actor_id")
+  actor   User   @relation("AdminActor", fields: [actorId], references: [id])
+
+  action     String
+  targetType String @map("target_type")
+  targetId   String @map("target_id")
+
+  beforeState Json? @map("before_state")
+  afterState  Json? @map("after_state")
+
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@map("admin_actions")
+}

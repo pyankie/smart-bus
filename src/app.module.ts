@@ -6,6 +6,7 @@ import { appConfig, validateEnv } from './common/config';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { HealthModule } from './modules/health/health.module';
         limit: 100,
       },
     ]),
+    PrismaModule,
     HealthModule,
   ],
   controllers: [],
