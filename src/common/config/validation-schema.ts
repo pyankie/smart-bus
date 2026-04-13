@@ -16,10 +16,6 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
-  // Argon2
-  ARGON_MEMORY_COST: z.string().regex(/^\d+$/).transform(Number).default('65536'),
-  ARGON_TIME_COST: z.string().regex(/^\d+$/).transform(Number).default('3'),
-
   // SMS / OTP
   SMS_PROVIDER_API_KEY: z.string().optional(),
   SMS_PROVIDER_URL: z.string().url().optional(),
