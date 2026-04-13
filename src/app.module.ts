@@ -9,6 +9,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HealthModule } from './modules/health/health.module';
+import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { PrismaModule } from './prisma/prisma.module';
       load: [appConfig],
       cache: true,
     }),
+    //TODO: try to make these field env vars
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
@@ -27,6 +29,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ]),
     PrismaModule,
     HealthModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [
