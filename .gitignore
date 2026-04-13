@@ -18,7 +18,7 @@ npm-debug.log*
 coverage/
 
 # Prisma generated
-src/prisma/generated/
+prisma/generated/
 
 # Editor
 .vscode/
