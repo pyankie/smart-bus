@@ -85,15 +85,30 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/test/unit"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^(?!.*prisma/generated).+\\.(t|j)s$": "ts-jest"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/",
+      "/prisma/generated/"
+    ],
+    "moduleNameMapper": {
+      "^@prisma-generated/client$": "<rootDir>/prisma/generated/client",
+      "^@prisma-generated/client/(.*)$": "<rootDir>/prisma/generated/client/$1",
+      "^@common/(.*)$": "<rootDir>/src/common/$1",
+      "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+      "^@prisma-lib/(.*)$": "<rootDir>/src/prisma/$1",
+      "^@jobs/(.*)$": "<rootDir>/src/jobs/$1"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/**/*.(t|j)s"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "coverage",
     "testEnvironment": "node"
   },
   "lint-staged": {
