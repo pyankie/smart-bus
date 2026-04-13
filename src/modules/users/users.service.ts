@@ -104,6 +104,23 @@ export class UsersService {
     }
   }
 
+  async findAuthByIdentifier(
+    identifier: string,
+    type: IdentifierType,
+    includeDeleted = false,
+  ): Promise<User | null> {
+    switch (type) {
+      case IdentifierType.PHONE:
+        return this.findAuthByPhone(identifier, includeDeleted);
+      case IdentifierType.EMAIL:
+        return this.findAuthByEmail(identifier, includeDeleted);
+      case IdentifierType.FID:
+        return this.findAuthByFid(identifier, includeDeleted);
+      default:
+        return null;
+    }
+  }
+
   // ─── Updates ───────────────────────────────────────────────────────────────
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<SafeUser> {
@@ -184,6 +201,27 @@ export class UsersService {
     }
 
     throw new ConflictException('Unique constraint violation');
+  }
+
+  private async findAuthByPhone(phone: string, includeDeleted: boolean): Promise<User | null> {
+    const user = await this.prisma.user.findUnique({ where: { phone } });
+    if (!includeDeleted && user?.deletedAt) return null;
+    return user;
+  }
+
+  private async findAuthByEmail(email: string, includeDeleted: boolean): Promise<User | null> {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) return null;
+
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!includeDeleted && user?.deletedAt) return null;
+    return user;
+  }
+
+  private async findAuthByFid(fid: string, includeDeleted: boolean): Promise<User | null> {
+    const user = await this.prisma.user.findUnique({ where: { fid } });
+    if (!includeDeleted && user?.deletedAt) return null;
+    return user;
   }
 
   private normalizeEmail(email?: string): string | undefined {
