@@ -12,4 +12,10 @@ export default registerAs('app', () => ({
   authClockSkewSeconds: parseInt(process.env.AUTH_CLOCK_SKEW_SECONDS ?? '30', 10),
   swaggerEnabled: process.env.SWAGGER_ENABLED === 'true',
   enableCron: process.env.ENABLE_CRON === 'true',
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    // Env files escape newlines as \n — the RSA key needs real newlines
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  },
 }));

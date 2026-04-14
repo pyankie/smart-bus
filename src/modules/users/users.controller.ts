@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import { UpdateFcmTokenDto } from './dto/update-fcm-token.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UsersService } from './users.service';
 
@@ -24,5 +25,13 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'Email already in use' })
   updateMe(@CurrentUser() user: JwtPayload, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(user.sub, dto);
+  }
+
+  @Patch('me/fcm-token')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Register or refresh FCM device token for push notifications' })
+  @ApiResponse({ status: 204, description: 'Token registered' })
+  updateFcmToken(@CurrentUser() user: JwtPayload, @Body() dto: UpdateFcmTokenDto) {
+    return this.users.updateFcmToken(user.sub, dto.token);
   }
 }

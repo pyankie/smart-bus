@@ -149,6 +149,11 @@ export class UsersService {
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
 
+  async updateFcmToken(id: string, fcmToken: string): Promise<void> {
+    await this.requireUser(id);
+    await this.prisma.user.update({ where: { id }, data: { fcmToken } });
+  }
+
   // ─── Soft delete / restore ─────────────────────────────────────────────────
 
   async softDelete(id: string): Promise<void> {

@@ -20,6 +20,7 @@ import {
 import { hash as argonHash, verify as argonVerify } from 'argon2';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -52,6 +53,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private users: UsersService,
+    private notifications: NotificationsService,
     private jwt: JwtService,
     private config: ConfigService,
   ) {}
@@ -74,7 +76,8 @@ export class AuthService {
 
     if (existing && existing.status === UserStatus.PENDING_VERIFICATION && !existing.deletedAt) {
       await this.assertNoOtpCooldown(dto.phone, OtpPurpose.REGISTRATION);
-      await this.createOtp(dto.phone, OtpPurpose.REGISTRATION, existing.id);
+      const code = await this.createOtp(dto.phone, OtpPurpose.REGISTRATION, existing.id);
+      await this.sendOtpSms(dto.phone, code);
       return { message: 'OTP sent' };
     }
 
@@ -89,7 +92,8 @@ export class AuthService {
       passwordHash,
     });
 
-    await this.createOtp(dto.phone, OtpPurpose.REGISTRATION, created.id);
+    const code = await this.createOtp(dto.phone, OtpPurpose.REGISTRATION, created.id);
+    await this.sendOtpSms(dto.phone, code);
 
     return { message: 'OTP sent' };
   }
@@ -241,7 +245,8 @@ export class AuthService {
     }
 
     await this.assertNoOtpCooldown(dto.phone, OtpPurpose.PASSWORD_RESET);
-    await this.createOtp(dto.phone, OtpPurpose.PASSWORD_RESET, user.id);
+    const code = await this.createOtp(dto.phone, OtpPurpose.PASSWORD_RESET, user.id);
+    await this.sendOtpSms(dto.phone, code);
 
     return { message: 'OTP sent' };
   }
@@ -283,6 +288,10 @@ export class AuthService {
     });
 
     return code;
+  }
+
+  private async sendOtpSms(phone: string, code: string): Promise<void> {
+    await this.notifications.sendSms(phone, `Your SmartBus verification code is ${code}`);
   }
 
   private async consumeOtp(phone: string, code: string, purpose: OtpPurpose): Promise<void> {

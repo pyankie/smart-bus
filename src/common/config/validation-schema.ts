@@ -23,7 +23,12 @@ const envSchema = z.object({
 
   // SMS / OTP
   SMS_PROVIDER_API_KEY: z.string().optional(),
-  SMS_PROVIDER_URL: z.string().url().optional(),
+  SMS_PROVIDER_URL: z.string().url().default('https://smsethiopia.com/api/sms/send'),
+
+  // Firebase / Push Notifications
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(), // RSA key — newlines escaped as \n in env files
 
   // Payment
   PAYMENT_WEBHOOK_SECRET: z.string().min(16).optional(),
