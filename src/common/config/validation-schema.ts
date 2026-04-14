@@ -42,6 +42,11 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('true'),
+
+  // Firebase / Push Notifications
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(),
 });
 
 export type EnvironmentVariables = z.infer<typeof envSchema>;
