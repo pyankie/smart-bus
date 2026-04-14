@@ -1,16 +1,11 @@
-import {
-  BadRequestException,
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export const IDEMPOTENCY_HEADER = 'idempotency-key';
 
-// Matches UUID v4 — the only accepted format for idempotency keys
-const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const idempotencyKeySchema = z.string().uuid();
 
 type IdempotentRequest = Request & { idempotencyKey?: string };
 
@@ -27,7 +22,7 @@ export class IdempotencyGuard implements CanActivate {
     if (!key) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
-    if (!UUID_V4.test(key)) {
+    if (!idempotencyKeySchema.safeParse(key).success) {
       throw new BadRequestException('Idempotency-Key must be a valid UUID v4');
     }
 
