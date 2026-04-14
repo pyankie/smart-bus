@@ -99,7 +99,7 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<{ message: string }> {
-    const purpose = dto.purpose as OtpPurpose;
+    const purpose = dto.purpose;
     await this.consumeOtp(dto.phone, dto.code, purpose);
 
     if (purpose === OtpPurpose.REGISTRATION) {
