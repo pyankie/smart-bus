@@ -10,7 +10,7 @@
  */
 
 import { hash } from 'argon2';
-import { PrismaClient, UserRole, UserStatus } from '@prisma-generated/client';
+import { PrismaClient, UserRole, UserStatus } from '../prisma/generated/client/client';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error('Seed must not run in production');
@@ -19,7 +19,7 @@ if (process.env.NODE_ENV === 'production') {
 const prisma = new PrismaClient();
 
 // ─── Fare helpers ────────────────────────────────────────────────────────────
-// Simple linear pricing: 500 santim per stop-distance (e.g. 2 hops → 1 000)
+// Simple linear pricing: 50 birr per stop-distance (e.g. 2 hops → 1 000)
 function fareAmount(fromSeq: number, toSeq: number): number {
   return Math.abs(toSeq - fromSeq) * 500;
 }
