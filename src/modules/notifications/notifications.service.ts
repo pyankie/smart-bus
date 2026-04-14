@@ -1,6 +1,12 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { NotificationChannel, NotificationStatus } from '@prisma-generated/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
 
 @Injectable()
@@ -10,6 +16,7 @@ export class NotificationsService {
   constructor(
     private prisma: PrismaService,
     private smsProvider: SmsProvider,
+    private pushProvider: PushProvider,
   ) {}
 
   async sendSms(phone: string, message: string): Promise<void> {
@@ -44,6 +51,68 @@ export class NotificationsService {
     }
   }
 
+  async sendPush(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, fcmToken: true },
+    });
+
+    if (!user) {
+      throw new InternalServerErrorException('Cannot send push for unknown user');
+    }
+
+    const fcmToken = user.fcmToken ?? undefined;
+
+    if (!fcmToken) {
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          channel: NotificationChannel.PUSH,
+          status: NotificationStatus.FAILED,
+          title,
+          body,
+          failureReason: 'No FCM token registered',
+        },
+      });
+      this.logger.warn(`Push skipped (no FCM token): userId=${userId}`);
+      return;
+    }
+
+    try {
+      await this.pushProvider.send(fcmToken, title, body, data);
+
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          channel: NotificationChannel.PUSH,
+          status: NotificationStatus.SENT,
+          title,
+          body,
+          sentAt: new Date(),
+        },
+      });
+    } catch (error: unknown) {
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          channel: NotificationChannel.PUSH,
+          status: NotificationStatus.FAILED,
+          title,
+          body,
+          failureReason: this.errorMessage(error),
+        },
+      });
+
+      this.logger.error(`Push send failed for userId=${userId}: ${this.errorMessage(error)}`);
+      throw new ServiceUnavailableException('Push delivery failed');
+    }
+  }
+
   private redactOtpBody(phone: string, body: string): string {
     if (!this.looksLikeOtp(body)) return body;
     const trimmed = phone.trim();
@@ -52,6 +121,10 @@ export class NotificationsService {
 
   private looksLikeOtp(body: string): boolean {
     return /\b\d{4,8}\b/.test(body) || /otp/i.test(body);
+  }
+
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 
   private async requireUserIdByPhone(phone: string): Promise<string> {
