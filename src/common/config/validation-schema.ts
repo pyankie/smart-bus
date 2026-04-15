@@ -4,6 +4,7 @@ const envSchema = z.object({
   // Runtime
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().regex(/^\d+$/).transform(Number).default('3000'),
+  APP_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
   API_PREFIX: z.string().default('api'),
   CORS_ORIGINS: z.string().default('*'), // comma-separated list in prod
   IDEMPOTENCY_TTL_MS: z.string().regex(/^\d+$/).transform(Number).default('86400000'),
@@ -27,6 +28,13 @@ const envSchema = z.object({
 
   // Payment
   PAYMENT_WEBHOOK_SECRET: z.string().min(16).optional(),
+  MIN_TOPUP_AMOUNT: z.string().regex(/^\d+$/).transform(Number).default('1000'),
+  MAX_TOPUP_AMOUNT: z.string().regex(/^\d+$/).transform(Number).default('1000000'),
+  CHAPA_SECRET_KEY: z.string().optional(),
+  CHAPA_BASE_URL: z.string().url().default('https://api.chapa.co/v1'),
+  CHAPA_CALLBACK_URL: z.string().url().optional(),
+  CHAPA_RETURN_URL: z.string().url().optional(),
+  CHAPA_WEBHOOK_SECRET: z.string().optional(),
 
   // QR signing — PROPOSAL: HMAC-SHA256; confirm before tickets module
   QR_SIGNING_SECRET: z.string().min(32).optional(),

@@ -3,6 +3,7 @@ import { registerAs } from '@nestjs/config';
 export default registerAs('app', () => ({
   env: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '3000', 10),
+  publicUrl: process.env.APP_PUBLIC_URL ?? 'http://localhost:3000',
   apiPrefix: process.env.API_PREFIX ?? 'api',
   corsOrigins: (process.env.CORS_ORIGINS ?? '*').split(',').map((o) => o.trim()),
   idempotencyTtlMs: parseInt(process.env.IDEMPOTENCY_TTL_MS ?? '86400000', 10),
@@ -10,6 +11,16 @@ export default registerAs('app', () => ({
   otpMaxAttempts: parseInt(process.env.OTP_MAX_ATTEMPTS ?? '5', 10),
   otpResendSeconds: parseInt(process.env.OTP_RESEND_SECONDS ?? '60', 10),
   authClockSkewSeconds: parseInt(process.env.AUTH_CLOCK_SKEW_SECONDS ?? '30', 10),
+  wallet: {
+    minTopupAmount: parseInt(process.env.MIN_TOPUP_AMOUNT ?? '1000', 10),
+    maxTopupAmount: parseInt(process.env.MAX_TOPUP_AMOUNT ?? '1000000', 10),
+  },
+  chapa: {
+    baseUrl: process.env.CHAPA_BASE_URL ?? 'https://api.chapa.co/v1',
+    callbackUrl: process.env.CHAPA_CALLBACK_URL,
+    returnUrl: process.env.CHAPA_RETURN_URL,
+    webhookSecret: process.env.CHAPA_WEBHOOK_SECRET ?? process.env.PAYMENT_WEBHOOK_SECRET,
+  },
   swaggerEnabled: process.env.SWAGGER_ENABLED === 'true',
   enableCron: process.env.ENABLE_CRON === 'true',
   firebase: {
