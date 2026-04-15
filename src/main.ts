@@ -7,7 +7,7 @@ import { AppModule } from './app.module';
 import { setupSwagger } from './common/config';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   const port = config.get<number>('app.port') ?? 3000;
   const corsOrigins = config.get<string[]>('app.corsOrigins') ?? ['*'];
