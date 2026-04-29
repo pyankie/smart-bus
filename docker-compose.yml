@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: smartbus
       POSTGRES_PASSWORD: smartbus_dev
@@ -8,7 +8,8 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
+      # - pgdata:/var/lib/postgresql/data   # use this if the Postgresql image version is under 18
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U smartbus -d smartbus']
       interval: 5s
