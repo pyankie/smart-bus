@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import express from 'express';
@@ -41,7 +41,12 @@ async function bootstrap(): Promise<void> {
     setupSwagger(app);
   }
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
+
+  Logger.log(`Server running on port ${port}`);
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  Logger.error('Failed to start server', error instanceof Error ? error.stack : String(error));
+  process.exitCode = 1;
+});
