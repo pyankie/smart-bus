@@ -19,7 +19,8 @@ RUN npx prisma generate
 # Copy source and build
 COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
-RUN npm run build
+RUN npx tsc -p tsconfig.build.json && npx tsc-alias -p tsconfig.build.json
+RUN test -f dist/src/main.js
 
 # ─────────────────────────────────────────────
 # Stage 2: Production runner
