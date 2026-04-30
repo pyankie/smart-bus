@@ -15,6 +15,7 @@ import { UsersModule } from './modules/users/users.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { TripsModule } from './modules/trips/trips.module';
+import { ValidationModule } from './modules/validation/validation.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -41,6 +42,7 @@ import { PrismaModule } from './prisma/prisma.module';
     RoutesModule,
     TicketsModule,
     TripsModule,
+    ValidationModule,
   ],
   controllers: [],
   providers: [
