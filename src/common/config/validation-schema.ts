@@ -36,8 +36,8 @@ const envSchema = z.object({
   CHAPA_RETURN_URL: z.string().url().optional(),
   CHAPA_WEBHOOK_SECRET: z.string().optional(),
 
-  // QR signing — PROPOSAL: HMAC-SHA256; confirm before tickets module
-  QR_SIGNING_SECRET: z.string().min(32).optional(),
+  // QR signing — HMAC-SHA256
+  QR_SIGNING_SECRET: z.string().min(32),
 
   // Jobs
   ENABLE_CRON: z
