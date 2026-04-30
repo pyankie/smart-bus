@@ -14,6 +14,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { UsersModule } from './modules/users/users.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
+import { TripsModule } from './modules/trips/trips.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -39,6 +40,7 @@ import { PrismaModule } from './prisma/prisma.module';
     WalletModule,
     RoutesModule,
     TicketsModule,
+    TripsModule,
   ],
   controllers: [],
   providers: [
