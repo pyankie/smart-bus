@@ -25,8 +25,8 @@ import {
   OtpPurpose,
 } from '../prisma/generated/client/client';
 
-if (process.env.NODE_ENV === 'production') {
-  throw new Error('Seed must not run in production');
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED_IN_PROD !== 'true') {
+  throw new Error('Seed must not run in production unless ALLOW_SEED_IN_PROD=true');
 }
 
 const prisma = new PrismaClient();
