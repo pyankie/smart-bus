@@ -50,6 +50,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "zod": "^3.24.0"
   },
   "devDependencies": {
@@ -120,6 +121,6 @@
     ]
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   }
 }
