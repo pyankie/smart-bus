@@ -212,4 +212,3 @@ For questions:
 1. Check Swagger docs first: http://localhost:3000/docs
 2. Review [TEST_DATA.md](./TEST_DATA.md) for data details
 3. See [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) for API examples
-4. Consult project rules: [../CLAUDE.md](../CLAUDE.md)
