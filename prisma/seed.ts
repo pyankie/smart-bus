@@ -26,7 +26,10 @@ import {
 } from '../prisma/generated/client/client';
 
 if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED_IN_PROD !== 'true') {
-  throw new Error('Seed must not run in production unless ALLOW_SEED_IN_PROD=true');
+  console.log(
+    '⏭️  Skipping seed in production. Set ALLOW_SEED_IN_PROD=true (and RUN_SEED=true) to allow it.',
+  );
+  process.exit(0);
 }
 
 const prisma = new PrismaClient();
@@ -170,6 +173,14 @@ const USERS = {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
+  // Check if database is already seeded (has users)
+  const userCount = await prisma.user.count();
+  if (userCount > 0) {
+    console.log(`⚠️  Database already has ${userCount} user(s). Skipping seed (not empty).`);
+    console.log('Note: Seed only runs on an empty database.\n');
+    return;
+  }
+
   console.log('🌱  Seeding database…\n');
 
   // ─── 1. Create Users ───────────────────────────────────────────────────────
