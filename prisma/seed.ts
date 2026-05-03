@@ -64,18 +64,21 @@ const ROUTES = [
     routeNumber: 'R01',
     name: 'Megenagna ↔ 4 Kilo',
     description: 'Main route connecting Megenagna to 4 Kilo via Bole',
+    estimatedDuration: 45, // in minutes
     stops: ['Megenagna', 'Bambis', 'Bole Michael', 'Mexico', '4 Kilo'],
   },
   {
     routeNumber: 'R02',
     name: 'Mexico ↔ Piazza',
     description: 'Central route from Mexico to Piazza via Merkato',
+    estimatedDuration: 30, // in minutes
     stops: ['Mexico', 'Afincho Ber', 'Lideta', 'Merkato', 'Piazza'],
   },
   {
     routeNumber: 'R03',
     name: 'CMC ↔ Gerji',
     description: 'Northern route connecting CMC to Gerji',
+    estimatedDuration: 40, // in minutes
     stops: ['CMC', 'Megenagna', 'Summit', 'Gerji Mebrat Hail', 'Gerji'],
   },
 ];
@@ -265,16 +268,17 @@ async function main(): Promise<void> {
 
   const routes = [];
   for (const routeDef of ROUTES) {
-    const route = await prisma.route.upsert({
-      where: { routeNumber: routeDef.routeNumber },
-      update: {},
-      create: {
-        routeNumber: routeDef.routeNumber,
-        name: routeDef.name,
-        description: routeDef.description,
-        isActive: true,
-      },
-    });
+      const route = await prisma.route.upsert({
+        where: { routeNumber: routeDef.routeNumber },
+        update: { estimatedDuration: routeDef.estimatedDuration },
+        create: {
+          routeNumber: routeDef.routeNumber,
+          name: routeDef.name,
+          description: routeDef.description,
+          estimatedDuration: routeDef.estimatedDuration,
+          isActive: true,
+        },
+      });
 
     // Delete existing stops/fares so upsert stays idempotent on re-seed
     await prisma.fare.deleteMany({ where: { routeId: route.id } });
