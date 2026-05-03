@@ -11,9 +11,13 @@ import { CreateRouteDto } from './dto/create-route.dto';
 import { UpdateRouteDto } from './dto/update-route.dto';
 import { StopDto } from './dto/stop.dto';
 import { FareDto } from './dto/fare.dto';
+import { RouteResponseDto } from './dto/route-response.dto';
 
 const ACTIVE_ROUTE_FILTER = { isActive: true, deletedAt: null };
-const STOPS_ORDERED = { stops: { orderBy: { sequence: 'asc' as const } } };
+const STOPS_AND_FARES = {
+  stops: { orderBy: { sequence: 'asc' as const } },
+  fares: true,
+};
 
 @Injectable()
 export class RoutesService {
@@ -26,7 +30,7 @@ export class RoutesService {
     const [items, total] = await Promise.all([
       this.prisma.route.findMany({
         where: ACTIVE_ROUTE_FILTER,
-        include: STOPS_ORDERED,
+        include: STOPS_AND_FARES,
         skip: pagination.skip,
         take: pagination.take,
         orderBy: pagination.orderBy,
@@ -35,7 +39,7 @@ export class RoutesService {
     ]);
 
     return {
-      items,
+      items: items.map((route) => this.transformRoute(route)),
       meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
     };
   }
@@ -57,7 +61,7 @@ export class RoutesService {
 
     let routes = await this.prisma.route.findMany({
       where: { ...ACTIVE_ROUTE_FILTER, ...textWhere },
-      include: STOPS_ORDERED,
+      include: STOPS_AND_FARES,
       skip: pagination.skip,
       take: pagination.take,
       orderBy: pagination.orderBy,
@@ -82,7 +86,7 @@ export class RoutesService {
       });
     }
 
-    return { items: routes };
+    return { items: routes.map((route) => this.transformRoute(route)) };
   }
 
   async findById(id: string) {
@@ -98,7 +102,7 @@ export class RoutesService {
       throw new NotFoundException('Route not found');
     }
 
-    return route;
+    return this.transformRoute(route);
   }
 
   async getFare(routeId: string, boardingStopId: string, dropoffStopId: string) {
@@ -232,6 +236,44 @@ export class RoutesService {
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  private transformRoute(route: {
+    id: string;
+    routeNumber: string;
+    name: string;
+    description: string | null;
+    isActive: boolean;
+    estimatedDuration: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+    stops: { id: string; name: string; sequence: number }[];
+    fares: { fromStopId: string; toStopId: string; amount: number }[];
+  }): RouteResponseDto {
+    const sortedStops = [...route.stops].sort((a, b) => a.sequence - b.sequence);
+    const startStop = sortedStops[0];
+    const endStop = sortedStops[sortedStops.length - 1];
+    const totalStops = sortedStops.length;
+
+    const fare =
+      route.fares.find(
+        (f) => f.fromStopId === startStop.id && f.toStopId === endStop.id,
+      )?.amount ?? 0;
+
+    return {
+      id: route.id,
+      routeNumber: route.routeNumber,
+      name: route.name,
+      description: route.description ?? undefined,
+      isActive: route.isActive,
+      duration: route.estimatedDuration ?? 0,
+      startStopName: startStop.name,
+      endStopName: endStop.name,
+      totalStops,
+      price: fare,
+      createdAt: route.createdAt,
+      updatedAt: route.updatedAt,
+    };
+  }
 
   private validateStops(stops: StopDto[]) {
     if (stops.length < 2) {
