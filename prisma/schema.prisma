@@ -250,6 +250,8 @@ model Route {
 
   isActive Boolean @default(true) @map("is_active")
 
+  estimatedDuration Int? @map("estimated_duration") // in minutes
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
