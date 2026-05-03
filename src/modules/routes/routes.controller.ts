@@ -10,6 +10,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { FareLookupDto } from './dto/fare-lookup.dto';
 import { RouteQueryDto } from './dto/route-query.dto';
 import { RouteSearchDto } from './dto/route-search.dto';
+import { RouteResponseDto } from './dto/route-response.dto';
 import { RoutesService } from './routes.service';
 
 @ApiTags('Routes')
@@ -20,21 +21,35 @@ export class RoutesController {
 
   @Get()
   @ApiOperation({ summary: 'List active routes (paginated)' })
-  @ApiResponse({ status: 200, description: 'Paginated list of active routes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of active routes',
+    type: RouteResponseDto,
+    isArray: false,
+  })
   findAll(@Query() query: RouteQueryDto) {
     return this.routes.findAll(query);
   }
 
   @Get('search')
   @ApiOperation({ summary: 'Search routes by keyword, departure, or destination' })
-  @ApiResponse({ status: 200, description: 'Matching routes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Matching routes',
+    type: RouteResponseDto,
+    isArray: false,
+  })
   search(@Query() query: RouteSearchDto) {
     return this.routes.search(query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get route detail with stops and fares' })
-  @ApiResponse({ status: 200, description: 'Route detail' })
+  @ApiResponse({
+    status: 200,
+    description: 'Route detail',
+    type: RouteResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Route not found' })
   findById(@Param('id', ParseUUIDPipe) id: string) {
     return this.routes.findById(id);
