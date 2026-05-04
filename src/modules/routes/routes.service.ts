@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
 import { RouteQueryDto } from './dto/route-query.dto';
@@ -12,6 +8,7 @@ import { UpdateRouteDto } from './dto/update-route.dto';
 import { StopDto } from './dto/stop.dto';
 import { FareDto } from './dto/fare.dto';
 import { RouteResponseDto } from './dto/route-response.dto';
+import { StopResponseDto } from './dto/stop-response.dto';
 
 const ACTIVE_ROUTE_FILTER = { isActive: true, deletedAt: null };
 const STOPS_AND_FARES = {
@@ -246,7 +243,13 @@ export class RoutesService {
     estimatedDuration: number | null;
     createdAt: Date;
     updatedAt: Date;
-    stops: { id: string; name: string; sequence: number }[];
+    stops: {
+      id: string;
+      name: string;
+      sequence: number;
+      latitude?: number | null;
+      longitude?: number | null;
+    }[];
     fares: { fromStopId: string; toStopId: string; amount: number }[];
   }): RouteResponseDto {
     const sortedStops = [...route.stops].sort((a, b) => a.sequence - b.sequence);
@@ -255,9 +258,16 @@ export class RoutesService {
     const totalStops = sortedStops.length;
 
     const fare =
-      route.fares.find(
-        (f) => f.fromStopId === startStop.id && f.toStopId === endStop.id,
-      )?.amount ?? 0;
+      route.fares.find((f) => f.fromStopId === startStop.id && f.toStopId === endStop.id)?.amount ??
+      0;
+
+    const stops: StopResponseDto[] = sortedStops.map((stop) => ({
+      id: stop.id,
+      name: stop.name,
+      sequence: stop.sequence,
+      ...(stop.latitude != null && { latitude: stop.latitude }),
+      ...(stop.longitude != null && { longitude: stop.longitude }),
+    }));
 
     return {
       id: route.id,
@@ -270,6 +280,7 @@ export class RoutesService {
       endStopName: endStop.name,
       totalStops,
       price: fare,
+      stops,
       createdAt: route.createdAt,
       updatedAt: route.updatedAt,
     };
@@ -283,9 +294,7 @@ export class RoutesService {
     const sequences = stops.map((s) => s.sequence).sort((a, b) => a - b);
     for (let i = 0; i < sequences.length; i++) {
       if (sequences[i] !== i + 1) {
-        throw new UnprocessableEntityException(
-          'Stop sequences must be contiguous starting from 1',
-        );
+        throw new UnprocessableEntityException('Stop sequences must be contiguous starting from 1');
       }
     }
   }
