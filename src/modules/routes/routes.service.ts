@@ -7,13 +7,15 @@ import { CreateRouteDto } from './dto/create-route.dto';
 import { UpdateRouteDto } from './dto/update-route.dto';
 import { StopDto } from './dto/stop.dto';
 import { FareDto } from './dto/fare.dto';
+import { RouteSegmentDto } from './dto/route-segment.dto';
 import { RouteResponseDto } from './dto/route-response.dto';
 import { StopResponseDto } from './dto/stop-response.dto';
 
 const ACTIVE_ROUTE_FILTER = { isActive: true, deletedAt: null };
-const STOPS_AND_FARES = {
+const STOPS_AND_FARES_AND_SEGMENTS = {
   stops: { orderBy: { sequence: 'asc' as const } },
   fares: true,
+  segments: { include: { fromStop: true, toStop: true } },
 };
 
 @Injectable()
@@ -27,7 +29,7 @@ export class RoutesService {
     const [items, total] = await Promise.all([
       this.prisma.route.findMany({
         where: ACTIVE_ROUTE_FILTER,
-        include: STOPS_AND_FARES,
+        include: STOPS_AND_FARES_AND_SEGMENTS,
         skip: pagination.skip,
         take: pagination.take,
         orderBy: pagination.orderBy,
@@ -58,7 +60,7 @@ export class RoutesService {
 
     let routes = await this.prisma.route.findMany({
       where: { ...ACTIVE_ROUTE_FILTER, ...textWhere },
-      include: STOPS_AND_FARES,
+      include: STOPS_AND_FARES_AND_SEGMENTS,
       skip: pagination.skip,
       take: pagination.take,
       orderBy: pagination.orderBy,
@@ -76,9 +78,7 @@ export class RoutesService {
 
         if (departure && !depStop) return false;
         if (destination && !destStop) return false;
-        if (departure && destination && depStop && destStop) {
-          return depStop.sequence < destStop.sequence;
-        }
+        // Both stops exist on the route — direction is a trip-level concern, not route-level
         return true;
       });
     }
@@ -89,10 +89,7 @@ export class RoutesService {
   async findById(id: string) {
     const route = await this.prisma.route.findUnique({
       where: { id },
-      include: {
-        stops: { orderBy: { sequence: 'asc' } },
-        fares: true,
-      },
+      include: STOPS_AND_FARES_AND_SEGMENTS,
     });
 
     if (!route || !route.isActive || route.deletedAt) {
@@ -133,6 +130,9 @@ export class RoutesService {
 
   async create(dto: CreateRouteDto) {
     this.validateStops(dto.stops);
+    if (dto.segments && dto.segments.length > 0) {
+      this.validateSegments(dto.segments);
+    }
 
     const routeNumber = dto.routeNumber.toUpperCase();
 
@@ -142,6 +142,9 @@ export class RoutesService {
           routeNumber,
           name: dto.name,
           description: dto.description,
+          ...(dto.estimatedDuration !== undefined && {
+            estimatedDuration: dto.estimatedDuration,
+          }),
         },
       });
 
@@ -155,6 +158,11 @@ export class RoutesService {
         })),
       });
 
+      const stops = await tx.stop.findMany({
+        where: { routeId: route.id },
+        orderBy: { sequence: 'asc' },
+      });
+
       if (dto.fares.length > 0) {
         await tx.fare.createMany({
           data: dto.fares.map((f) => ({
@@ -166,9 +174,28 @@ export class RoutesService {
         });
       }
 
+      if (dto.segments && dto.segments.length > 0) {
+        await tx.routeSegment.createMany({
+          data: dto.segments.map((s) => {
+            const fromStop = stops.find((stop) => stop.sequence === s.fromStopSequence);
+            const toStop = stops.find((stop) => stop.sequence === s.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in segment');
+            }
+            return {
+              routeId: route.id,
+              fromStopId: fromStop.id,
+              toStopId: toStop.id,
+              distance: s.distance,
+              duration: s.duration,
+            };
+          }),
+        });
+      }
+
       return tx.route.findUniqueOrThrow({
         where: { id: route.id },
-        include: { stops: { orderBy: { sequence: 'asc' } }, fares: true },
+        include: STOPS_AND_FARES_AND_SEGMENTS,
       });
     });
   }
@@ -182,6 +209,8 @@ export class RoutesService {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.estimatedDuration !== undefined ? { estimatedDuration: dto.estimatedDuration } : {}),
+        ...(dto.estimatedDistance !== undefined ? { estimatedDistance: dto.estimatedDistance } : {}),
       },
     });
   }
@@ -227,6 +256,44 @@ export class RoutesService {
     });
   }
 
+  async updateSegments(routeId: string, segments: RouteSegmentDto[]) {
+    await this.assertExists(routeId);
+    this.validateSegments(segments);
+
+    const stops = await this.prisma.stop.findMany({
+      where: { routeId },
+      orderBy: { sequence: 'asc' },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.routeSegment.deleteMany({ where: { routeId } });
+
+      if (segments.length > 0) {
+        await tx.routeSegment.createMany({
+          data: segments.map((s) => {
+            const fromStop = stops.find((stop) => stop.sequence === s.fromStopSequence);
+            const toStop = stops.find((stop) => stop.sequence === s.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in segment');
+            }
+            return {
+              routeId,
+              fromStopId: fromStop.id,
+              toStopId: toStop.id,
+              distance: s.distance,
+              duration: s.duration,
+            };
+          }),
+        });
+      }
+
+      return tx.routeSegment.findMany({
+        where: { routeId },
+        include: { fromStop: true, toStop: true },
+      });
+    });
+  }
+
   async softDelete(id: string) {
     await this.assertExists(id);
     await this.prisma.route.update({ where: { id }, data: { deletedAt: new Date() } });
@@ -241,6 +308,7 @@ export class RoutesService {
     description: string | null;
     isActive: boolean;
     estimatedDuration: number | null;
+    estimatedDistance: number | null;
     createdAt: Date;
     updatedAt: Date;
     stops: {
@@ -251,23 +319,58 @@ export class RoutesService {
       longitude?: number | null;
     }[];
     fares: { fromStopId: string; toStopId: string; amount: number }[];
+    segments?: {
+      fromStop: { sequence: number };
+      toStop: { sequence: number };
+      distance: number;
+      duration: number;
+    }[];
   }): RouteResponseDto {
     const sortedStops = [...route.stops].sort((a, b) => a.sequence - b.sequence);
     const startStop = sortedStops[0];
     const endStop = sortedStops[sortedStops.length - 1];
-    const totalStops = sortedStops.length;
 
     const fare =
-      route.fares.find((f) => f.fromStopId === startStop.id && f.toStopId === endStop.id)?.amount ??
-      0;
+      route.fares.find((f) => f.fromStopId === startStop.id && f.toStopId === endStop.id)
+        ?.amount ?? 0;
 
-    const stops: StopResponseDto[] = sortedStops.map((stop) => ({
-      id: stop.id,
-      name: stop.name,
-      sequence: stop.sequence,
-      ...(stop.latitude != null && { latitude: stop.latitude }),
-      ...(stop.longitude != null && { longitude: stop.longitude }),
-    }));
+    // Index forward-consecutive segments by their fromStop sequence
+    const segByFromSeq = new Map<number, { distance: number; duration: number }>();
+    for (const seg of route.segments ?? []) {
+      if (seg.fromStop.sequence + 1 === seg.toStop.sequence) {
+        segByFromSeq.set(seg.fromStop.sequence, {
+          distance: seg.distance,
+          duration: seg.duration,
+        });
+      }
+    }
+
+    const stops: StopResponseDto[] = sortedStops.map((stop) => {
+      const toNext = segByFromSeq.get(stop.sequence) ?? null;
+      const fromPrev = segByFromSeq.get(stop.sequence - 1) ?? null;
+      return {
+        id: stop.id,
+        name: stop.name,
+        sequence: stop.sequence,
+        ...(stop.latitude != null && { latitude: stop.latitude }),
+        ...(stop.longitude != null && { longitude: stop.longitude }),
+        distanceFromPrevious: fromPrev?.distance ?? null,
+        distanceToNext: toNext?.distance ?? null,
+        durationFromPrevious: fromPrev?.duration ?? null,
+        durationToNext: toNext?.duration ?? null,
+      };
+    });
+
+    // Prefer summed-segment totals; fall back to stored estimates
+    const segValues = [...segByFromSeq.values()];
+    const distance =
+      segValues.length > 0
+        ? segValues.reduce((sum, s) => sum + s.distance, 0)
+        : (route.estimatedDistance ?? 0);
+    const duration =
+      segValues.length > 0
+        ? segValues.reduce((sum, s) => sum + s.duration, 0)
+        : (route.estimatedDuration ?? 0);
 
     return {
       id: route.id,
@@ -275,15 +378,26 @@ export class RoutesService {
       name: route.name,
       description: route.description ?? undefined,
       isActive: route.isActive,
-      duration: route.estimatedDuration ?? 0,
+      duration,
+      distance,
       startStopName: startStop.name,
       endStopName: endStop.name,
-      totalStops,
+      totalStops: sortedStops.length,
       price: fare,
       stops,
       createdAt: route.createdAt,
       updatedAt: route.updatedAt,
     };
+  }
+
+  private validateSegments(segments: RouteSegmentDto[]) {
+    for (const seg of segments) {
+      if (seg.toStopSequence !== seg.fromStopSequence + 1) {
+        throw new UnprocessableEntityException(
+          `Segment ${seg.fromStopSequence}→${seg.toStopSequence} is not forward-consecutive. Each segment must connect adjacent stops in ascending order.`,
+        );
+      }
+    }
   }
 
   private validateStops(stops: StopDto[]) {
