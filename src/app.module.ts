@@ -18,6 +18,7 @@ import { TripsModule } from './modules/trips/trips.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { ValidationModule } from './modules/validation/validation.module';
 import { WalletModule } from './modules/wallet/wallet.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -45,6 +46,7 @@ import { PrismaModule } from './prisma/prisma.module';
     TripsModule,
     ValidationModule,
     SyncModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [
