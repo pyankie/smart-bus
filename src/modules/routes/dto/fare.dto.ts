@@ -1,15 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsUUID, Min } from 'class-validator';
+import { IsInt, Min } from 'class-validator';
 
 export class FareDto {
-  @IsUUID()
-  @ApiProperty()
-  fromStopId!: string;
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  @ApiProperty({ minimum: 1, description: 'Sequence number of the boarding stop' })
+  fromStopSequence!: number;
 
-  @IsUUID()
-  @ApiProperty()
-  toStopId!: string;
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  @ApiProperty({ minimum: 1, description: 'Sequence number of the dropoff stop' })
+  toStopSequence!: number;
 
   @IsInt()
   @Min(1)
