@@ -252,14 +252,17 @@ model Route {
 
   estimatedDuration Int? @map("estimated_duration") // in minutes
 
+  estimatedDistance Int? @map("estimated_distance") // in meters
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  stops   Stop[]
-  fares   Fare[]
-  trips   Trip[]
-  tickets Ticket[]
+  stops       Stop[]
+  segments   RouteSegment[]
+  fares       Fare[]
+  trips       Trip[]
+  tickets     Ticket[]
 
   @@index([isActive, deletedAt])
   @@map("routes")
@@ -282,10 +285,35 @@ model Stop {
   faresTo         Fare[]   @relation("FareToStop")
   ticketsBoarding Ticket[] @relation("TicketBoardingStop")
   ticketsDropoff  Ticket[] @relation("TicketDropoffStop")
+  segmentsFrom    RouteSegment[] @relation("SegmentFrom")
+  segmentsTo      RouteSegment[] @relation("SegmentTo")
 
   @@unique([routeId, sequence])
   @@index([routeId])
   @@map("stops")
+}
+
+model RouteSegment {
+  id        String   @id @default(uuid())
+  routeId   String   @map("route_id")
+  route      Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  fromStopId String   @map("from_stop_id")
+  fromStop   Stop     @relation("SegmentFrom", fields: [fromStopId], references: [id])
+  toStopId   String   @map("to_stop_id")
+  toStop     Stop     @relation("SegmentTo", fields: [toStopId], references: [id])
+
+  distance  Int      @map("distance") // in meters
+  duration  Int      @map("duration") // in minutes
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([routeId, fromStopId, toStopId])
+  @@index([routeId])
+  @@index([fromStopId])
+  @@index([toStopId])
+  @@map("route_segments")
 }
 
 model Fare {
