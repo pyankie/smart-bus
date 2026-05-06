@@ -222,9 +222,6 @@ export class RoutesService {
     this.validateStops(stops);
 
     return this.prisma.$transaction(async (tx) => {
-      // Fares and segments reference stop IDs; delete them before deleting stops
-      await tx.routeSegment.deleteMany({ where: { routeId } });
-      await tx.fare.deleteMany({ where: { routeId } });
       await tx.stop.deleteMany({ where: { routeId } });
 
       await tx.stop.createMany({
