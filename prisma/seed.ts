@@ -65,21 +65,42 @@ const ROUTES = [
     name: 'Megenagna ↔ 4 Kilo',
     description: 'Main route connecting Megenagna to 4 Kilo via Bole',
     estimatedDuration: 45, // in minutes
+    estimatedDistance: 15000, // 15km in meters
     stops: ['Megenagna', 'Bambis', 'Bole Michael', 'Mexico', '4 Kilo'],
+    segments: [
+      { fromSeq: 1, toSeq: 2, distance: 3000, duration: 10 },
+      { fromSeq: 2, toSeq: 3, distance: 4000, duration: 12 },
+      { fromSeq: 3, toSeq: 4, distance: 3500, duration: 11 },
+      { fromSeq: 4, toSeq: 5, distance: 4500, duration: 12 },
+    ],
   },
   {
     routeNumber: 'R02',
     name: 'Mexico ↔ Piazza',
     description: 'Central route from Mexico to Piazza via Merkato',
     estimatedDuration: 30, // in minutes
+    estimatedDistance: 10000, // 10km in meters
     stops: ['Mexico', 'Afincho Ber', 'Lideta', 'Merkato', 'Piazza'],
+    segments: [
+      { fromSeq: 1, toSeq: 2, distance: 2000, duration: 6 },
+      { fromSeq: 2, toSeq: 3, distance: 2500, duration: 7 },
+      { fromSeq: 3, toSeq: 4, distance: 3000, duration: 9 },
+      { fromSeq: 4, toSeq: 5, distance: 2500, duration: 8 },
+    ],
   },
   {
     routeNumber: 'R03',
     name: 'CMC ↔ Gerji',
     description: 'Northern route connecting CMC to Gerji',
     estimatedDuration: 40, // in minutes
+    estimatedDistance: 12000, // 12km in meters
     stops: ['CMC', 'Megenagna', 'Summit', 'Gerji Mebrat Hail', 'Gerji'],
+    segments: [
+      { fromSeq: 1, toSeq: 2, distance: 4500, duration: 15 },
+      { fromSeq: 2, toSeq: 3, distance: 3500, duration: 12 },
+      { fromSeq: 3, toSeq: 4, distance: 2000, duration: 7 },
+      { fromSeq: 4, toSeq: 5, distance: 2000, duration: 6 },
+    ],
   },
 ];
 
@@ -270,12 +291,16 @@ async function main(): Promise<void> {
   for (const routeDef of ROUTES) {
       const route = await prisma.route.upsert({
         where: { routeNumber: routeDef.routeNumber },
-        update: { estimatedDuration: routeDef.estimatedDuration },
+        update: { 
+          estimatedDuration: routeDef.estimatedDuration,
+          estimatedDistance: routeDef.estimatedDistance,
+        },
         create: {
           routeNumber: routeDef.routeNumber,
           name: routeDef.name,
           description: routeDef.description,
           estimatedDuration: routeDef.estimatedDuration,
+          estimatedDistance: routeDef.estimatedDistance,
           isActive: true,
         },
       });
@@ -294,6 +319,24 @@ async function main(): Promise<void> {
 
     const fares = buildFares(route.id, stops);
     await prisma.fare.createMany({ data: fares });
+
+    if (routeDef.segments && routeDef.segments.length > 0) {
+      const segments = routeDef.segments.map((s) => {
+        const fromStop = stops.find((stop) => stop.sequence === s.fromSeq);
+        const toStop = stops.find((stop) => stop.sequence === s.toSeq);
+        if (!fromStop || !toStop) {
+          throw new Error(`Invalid segment sequence: ${s.fromSeq} → ${s.toSeq}`);
+        }
+        return {
+          routeId: route.id,
+          fromStopId: fromStop.id,
+          toStopId: toStop.id,
+          distance: s.distance,
+          duration: s.duration,
+        };
+      });
+      await prisma.routeSegment.createMany({ data: segments });
+    }
 
     routes.push({ ...route, stops });
     console.log(`  ✓ Route ${route.routeNumber}: ${stops.length} stops, ${fares.length} fares`);
