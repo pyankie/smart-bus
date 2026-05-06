@@ -165,12 +165,14 @@ export class RoutesService {
 
       if (dto.fares.length > 0) {
         await tx.fare.createMany({
-          data: dto.fares.map((f) => ({
-            routeId: route.id,
-            fromStopId: f.fromStopId,
-            toStopId: f.toStopId,
-            amount: f.amount,
-          })),
+          data: dto.fares.map((f) => {
+            const fromStop = stops.find((s) => s.sequence === f.fromStopSequence);
+            const toStop = stops.find((s) => s.sequence === f.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in fare');
+            }
+            return { routeId: route.id, fromStopId: fromStop.id, toStopId: toStop.id, amount: f.amount };
+          }),
         });
       }
 
@@ -220,7 +222,11 @@ export class RoutesService {
     this.validateStops(stops);
 
     return this.prisma.$transaction(async (tx) => {
+      // Fares and segments reference stop IDs; delete them before deleting stops
+      await tx.routeSegment.deleteMany({ where: { routeId } });
+      await tx.fare.deleteMany({ where: { routeId } });
       await tx.stop.deleteMany({ where: { routeId } });
+
       await tx.stop.createMany({
         data: stops.map((s) => ({
           routeId,
@@ -238,17 +244,24 @@ export class RoutesService {
   async updateFares(routeId: string, fares: FareDto[]) {
     await this.assertExists(routeId);
 
+    const stops = await this.prisma.stop.findMany({
+      where: { routeId },
+      orderBy: { sequence: 'asc' },
+    });
+
     return this.prisma.$transaction(async (tx) => {
       await tx.fare.deleteMany({ where: { routeId } });
 
       if (fares.length > 0) {
         await tx.fare.createMany({
-          data: fares.map((f) => ({
-            routeId,
-            fromStopId: f.fromStopId,
-            toStopId: f.toStopId,
-            amount: f.amount,
-          })),
+          data: fares.map((f) => {
+            const fromStop = stops.find((s) => s.sequence === f.fromStopSequence);
+            const toStop = stops.find((s) => s.sequence === f.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in fare');
+            }
+            return { routeId, fromStopId: fromStop.id, toStopId: toStop.id, amount: f.amount };
+          }),
         });
       }
 
