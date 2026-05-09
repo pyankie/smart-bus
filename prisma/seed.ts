@@ -59,47 +59,49 @@ function buildFares(routeId: string, stops: { id: string; sequence: number }[]) 
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+// distanceFromPrevious (meters) and durationFromPrevious (minutes) are 0 for
+// the first stop of each route and used to build RouteSegment records.
 const ROUTES = [
   {
     routeNumber: 'R01',
     name: 'Megenagna ↔ 4 Kilo',
     description: 'Main route connecting Megenagna to 4 Kilo via Bole',
-    estimatedDuration: 45, // in minutes
-    estimatedDistance: 15000, // 15km in meters
-    stops: ['Megenagna', 'Bambis', 'Bole Michael', 'Mexico', '4 Kilo'],
-    segments: [
-      { fromSeq: 1, toSeq: 2, distance: 3000, duration: 10 },
-      { fromSeq: 2, toSeq: 3, distance: 4000, duration: 12 },
-      { fromSeq: 3, toSeq: 4, distance: 3500, duration: 11 },
-      { fromSeq: 4, toSeq: 5, distance: 4500, duration: 12 },
+    estimatedDuration: 45,
+    estimatedDistance: 15000,
+    stops: [
+      { name: 'Megenagna',   latitude: 9.0190, longitude: 38.7897, distanceFromPrevious: 0,    durationFromPrevious: 0  },
+      { name: 'Bambis',      latitude: 9.0130, longitude: 38.7750, distanceFromPrevious: 3000, durationFromPrevious: 10 },
+      { name: 'Bole Michael',latitude: 9.0019, longitude: 38.7756, distanceFromPrevious: 4000, durationFromPrevious: 12 },
+      { name: 'Mexico',      latitude: 9.0138, longitude: 38.7614, distanceFromPrevious: 3500, durationFromPrevious: 11 },
+      { name: '4 Kilo',      latitude: 9.0228, longitude: 38.7613, distanceFromPrevious: 4500, durationFromPrevious: 12 },
     ],
   },
   {
     routeNumber: 'R02',
     name: 'Mexico ↔ Piazza',
     description: 'Central route from Mexico to Piazza via Merkato',
-    estimatedDuration: 30, // in minutes
-    estimatedDistance: 10000, // 10km in meters
-    stops: ['Mexico', 'Afincho Ber', 'Lideta', 'Merkato', 'Piazza'],
-    segments: [
-      { fromSeq: 1, toSeq: 2, distance: 2000, duration: 6 },
-      { fromSeq: 2, toSeq: 3, distance: 2500, duration: 7 },
-      { fromSeq: 3, toSeq: 4, distance: 3000, duration: 9 },
-      { fromSeq: 4, toSeq: 5, distance: 2500, duration: 8 },
+    estimatedDuration: 30,
+    estimatedDistance: 10000,
+    stops: [
+      { name: 'Mexico',     latitude: 9.0138, longitude: 38.7614, distanceFromPrevious: 0,    durationFromPrevious: 0 },
+      { name: 'Afincho Ber',latitude: 9.0160, longitude: 38.7517, distanceFromPrevious: 2000, durationFromPrevious: 6 },
+      { name: 'Lideta',     latitude: 9.0175, longitude: 38.7448, distanceFromPrevious: 2500, durationFromPrevious: 7 },
+      { name: 'Merkato',    latitude: 9.0185, longitude: 38.7356, distanceFromPrevious: 3000, durationFromPrevious: 9 },
+      { name: 'Piazza',     latitude: 9.0308, longitude: 38.7404, distanceFromPrevious: 2500, durationFromPrevious: 8 },
     ],
   },
   {
     routeNumber: 'R03',
     name: 'CMC ↔ Gerji',
     description: 'Northern route connecting CMC to Gerji',
-    estimatedDuration: 40, // in minutes
-    estimatedDistance: 12000, // 12km in meters
-    stops: ['CMC', 'Megenagna', 'Summit', 'Gerji Mebrat Hail', 'Gerji'],
-    segments: [
-      { fromSeq: 1, toSeq: 2, distance: 4500, duration: 15 },
-      { fromSeq: 2, toSeq: 3, distance: 3500, duration: 12 },
-      { fromSeq: 3, toSeq: 4, distance: 2000, duration: 7 },
-      { fromSeq: 4, toSeq: 5, distance: 2000, duration: 6 },
+    estimatedDuration: 40,
+    estimatedDistance: 12000,
+    stops: [
+      { name: 'CMC',               latitude: 9.0420, longitude: 38.8109, distanceFromPrevious: 0,    durationFromPrevious: 0  },
+      { name: 'Megenagna',         latitude: 9.0190, longitude: 38.7897, distanceFromPrevious: 4500, durationFromPrevious: 15 },
+      { name: 'Summit',            latitude: 9.0130, longitude: 38.8003, distanceFromPrevious: 3500, durationFromPrevious: 12 },
+      { name: 'Gerji Mebrat Hail', latitude: 9.0116, longitude: 38.8092, distanceFromPrevious: 2000, durationFromPrevious: 7  },
+      { name: 'Gerji',             latitude: 9.0091, longitude: 38.8110, distanceFromPrevious: 2000, durationFromPrevious: 6  },
     ],
   },
 ];
@@ -305,14 +307,21 @@ async function main(): Promise<void> {
         },
       });
 
-    // Delete existing stops/fares so upsert stays idempotent on re-seed
+    // Delete existing data so upsert stays idempotent on re-seed
     await prisma.fare.deleteMany({ where: { routeId: route.id } });
+    await prisma.routeSegment.deleteMany({ where: { routeId: route.id } });
     await prisma.stop.deleteMany({ where: { routeId: route.id } });
 
     const stops = await Promise.all(
-      routeDef.stops.map((name, idx) =>
+      routeDef.stops.map((stopDef, idx) =>
         prisma.stop.create({
-          data: { routeId: route.id, name, sequence: idx + 1 },
+          data: {
+            routeId: route.id,
+            name: stopDef.name,
+            sequence: idx + 1,
+            latitude: stopDef.latitude,
+            longitude: stopDef.longitude,
+          },
         }),
       ),
     );
@@ -320,23 +329,14 @@ async function main(): Promise<void> {
     const fares = buildFares(route.id, stops);
     await prisma.fare.createMany({ data: fares });
 
-    if (routeDef.segments && routeDef.segments.length > 0) {
-      const segments = routeDef.segments.map((s) => {
-        const fromStop = stops.find((stop) => stop.sequence === s.fromSeq);
-        const toStop = stops.find((stop) => stop.sequence === s.toSeq);
-        if (!fromStop || !toStop) {
-          throw new Error(`Invalid segment sequence: ${s.fromSeq} → ${s.toSeq}`);
-        }
-        return {
-          routeId: route.id,
-          fromStopId: fromStop.id,
-          toStopId: toStop.id,
-          distance: s.distance,
-          duration: s.duration,
-        };
-      });
-      await prisma.routeSegment.createMany({ data: segments });
-    }
+    const segments = routeDef.stops.slice(1).map((stopDef, idx) => ({
+      routeId: route.id,
+      fromStopId: stops[idx].id,
+      toStopId: stops[idx + 1].id,
+      distance: stopDef.distanceFromPrevious,
+      duration: stopDef.durationFromPrevious,
+    }));
+    await prisma.routeSegment.createMany({ data: segments });
 
     routes.push({ ...route, stops });
     console.log(`  ✓ Route ${route.routeNumber}: ${stops.length} stops, ${fares.length} fares`);
