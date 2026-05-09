@@ -19,6 +19,8 @@ import { SyncModule } from './modules/sync/sync.module';
 import { ValidationModule } from './modules/validation/validation.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { JobsModule } from './jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -47,6 +49,8 @@ import { PrismaModule } from './prisma/prisma.module';
     ValidationModule,
     SyncModule,
     AdminModule,
+    AnalyticsModule,
+    JobsModule.register(),
   ],
   controllers: [],
   providers: [
