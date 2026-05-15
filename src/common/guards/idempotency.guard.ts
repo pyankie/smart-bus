@@ -5,7 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 export const IDEMPOTENCY_HEADER = 'idempotency-key';
 
-const idempotencyKeySchema = z.string().uuid();
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const idempotencyKeySchema = z.string().regex(UUID_V4_REGEX);
 
 type IdempotentRequest = Request & { idempotencyKey?: string };
 
