@@ -40,38 +40,44 @@ export class PaymentProvider {
 
     const txRef = `topup-${randomUUID()}`;
 
-    const response = await fetch(`${baseUrl}/transaction/initialize`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        amount: amount.toString(),
-        currency: 'ETB',
-        email: customer.email ?? `${customer.phone.replace('+', '')}@smartbus.local`,
-        first_name: customer.firstName,
-        last_name: customer.lastName,
-        phone_number: customer.phone,
-        tx_ref: txRef,
-        callback_url: callbackUrl,
-        return_url: returnUrl,
-        customization: {
-          title: 'SmartBus Wallet Top-up',
-          description: `Wallet top-up via ${method}`,
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/transaction/initialize`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          amount: amount.toString(),
+          currency: 'ETB',
+          email: customer.email ?? `${customer.phone.replace('+', '')}@smartbus.local`,
+          first_name: customer.firstName,
+          last_name: customer.lastName,
+          phone_number: customer.phone,
+          tx_ref: txRef,
+          callback_url: callbackUrl,
+          return_url: returnUrl,
+          customization: {
+            title: 'SmartBus Wallet Top-up',
+            description: `Wallet top-up via ${method}`,
+          },
+        }),
+      });
+    } catch {
+      throw new ServiceUnavailableException('Payment provider unreachable');
+    }
 
-    const data = (await response.json()) as {
-      status?: string;
-      message?: string;
-      data?: { checkout_url?: string; tx_ref?: string };
-    };
+    let data: { status?: string; message?: string; data?: { checkout_url?: string; tx_ref?: string } };
+    try {
+      data = (await response.json()) as typeof data;
+    } catch {
+      throw new ServiceUnavailableException('Payment provider returned an invalid response');
+    }
 
     if (!response.ok || data.status !== 'success' || !data.data?.checkout_url) {
       throw new ServiceUnavailableException(
-        `Payment provider unavailable: ${data.message ?? 'unknown error'}`,
+        `Payment provider error: ${data.message ?? 'unknown error'}`,
       );
     }
 
