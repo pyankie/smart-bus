@@ -8,6 +8,7 @@ import { UpdateRouteDto } from './dto/update-route.dto';
 import { StopDto } from './dto/stop.dto';
 import { FareDto } from './dto/fare.dto';
 import { RouteSegmentDto } from './dto/route-segment.dto';
+import { FareResponseDto } from './dto/fare-response.dto';
 import { RouteResponseDto } from './dto/route-response.dto';
 import { StopResponseDto } from './dto/stop-response.dto';
 
@@ -222,6 +223,8 @@ export class RoutesService {
     this.validateStops(stops);
 
     return this.prisma.$transaction(async (tx) => {
+      await tx.fare.deleteMany({ where: { routeId } });
+      await tx.routeSegment.deleteMany({ where: { routeId } });
       await tx.stop.deleteMany({ where: { routeId } });
 
       await tx.stop.createMany({
@@ -382,6 +385,15 @@ export class RoutesService {
         ? segValues.reduce((sum, s) => sum + s.duration, 0)
         : (route.estimatedDuration ?? 0);
 
+    const stopSeqById = new Map<string, number>(sortedStops.map((s) => [s.id, s.sequence]));
+    const fares: FareResponseDto[] = route.fares.map((f) => ({
+      fromStopId: f.fromStopId,
+      toStopId: f.toStopId,
+      fromStopSequence: stopSeqById.get(f.fromStopId) ?? 0,
+      toStopSequence: stopSeqById.get(f.toStopId) ?? 0,
+      amount: f.amount,
+    }));
+
     return {
       id: route.id,
       routeNumber: route.routeNumber,
@@ -394,6 +406,7 @@ export class RoutesService {
       endStopName: endStop.name,
       totalStops: sortedStops.length,
       price: fare,
+      fares,
       stops,
       createdAt: route.createdAt,
       updatedAt: route.updatedAt,
