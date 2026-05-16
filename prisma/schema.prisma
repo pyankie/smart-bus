@@ -202,7 +202,7 @@ model Wallet {
   userId String @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  balance Int @default(0) //never negative
+  balance Float @default(0) // ETB, never negative
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -219,8 +219,8 @@ model WalletTransaction {
 
   type         WalletTransactionType
   status       WalletTransactionStatus @default(PENDING)
-  amount       Int //always positive; sign implied by type
-  balanceAfter Int?                    @map("balance_after")
+  amount       Float // ETB, always positive; sign implied by type
+  balanceAfter Float?                  @map("balance_after")
 
   ticketId       String? @map("ticket_id")
   externalRef    String? @map("external_ref")
@@ -327,7 +327,7 @@ model Fare {
   toStopId String @map("to_stop_id")
   toStop   Stop   @relation("FareToStop", fields: [toStopId], references: [id])
 
-  amount Int
+  amount Float // ETB
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -355,7 +355,7 @@ model Ticket {
   dropoffStopId String @map("dropoff_stop_id")
   dropoffStop   Stop   @relation("TicketDropoffStop", fields: [dropoffStopId], references: [id])
 
-  fareAmount Int @map("fare_amount") // snapshot at purchase time
+  fareAmount Float @map("fare_amount") // ETB, snapshot at purchase time
 
   status TicketStatus @default(ACTIVE)
 
