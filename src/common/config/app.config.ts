@@ -12,8 +12,8 @@ export default registerAs('app', () => ({
   otpResendSeconds: parseInt(process.env.OTP_RESEND_SECONDS ?? '60', 10),
   authClockSkewSeconds: parseInt(process.env.AUTH_CLOCK_SKEW_SECONDS ?? '30', 10),
   wallet: {
-    minTopupAmount: parseInt(process.env.MIN_TOPUP_AMOUNT ?? '1000', 10),
-    maxTopupAmount: parseInt(process.env.MAX_TOPUP_AMOUNT ?? '1000000', 10),
+    minTopupAmount: parseFloat(process.env.MIN_TOPUP_AMOUNT ?? '10'),
+    maxTopupAmount: parseFloat(process.env.MAX_TOPUP_AMOUNT ?? '10000'),
   },
   chapa: {
     baseUrl: process.env.CHAPA_BASE_URL ?? 'https://api.chapa.co/v1',
