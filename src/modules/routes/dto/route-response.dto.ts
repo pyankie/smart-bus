@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { FareResponseDto } from './fare-response.dto';
 import { StopResponseDto } from './stop-response.dto';
 
 export class RouteResponseDto {
@@ -32,8 +33,11 @@ export class RouteResponseDto {
   @ApiProperty()
   totalStops!: number;
 
-  @ApiProperty({ description: 'Full-route fare (first to last stop) in santim' })
+  @ApiProperty({ description: 'Full-route fare (first to last stop) in ETB' })
   price!: number;
+
+  @ApiProperty({ type: [FareResponseDto], description: 'All stop-pair fares for this route' })
+  fares!: FareResponseDto[];
 
   @ApiProperty({ type: [StopResponseDto] })
   stops!: StopResponseDto[];
