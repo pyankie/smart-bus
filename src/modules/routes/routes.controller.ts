@@ -5,8 +5,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { UserRole } from '@prisma-generated/client';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { FareLookupDto } from './dto/fare-lookup.dto';
 import { RouteQueryDto } from './dto/route-query.dto';
 import { RouteSearchDto } from './dto/route-search.dto';
@@ -56,9 +54,8 @@ export class RoutesController {
   }
 
   @Get(':id/fare')
-  @Roles(UserRole.PASSENGER)
   @ApiOperation({ summary: 'Look up fare for a stop pair on a route' })
-  @ApiResponse({ status: 200, description: 'Fare amount in santim' })
+  @ApiResponse({ status: 200, description: 'Fare amount in ETB' })
   @ApiResponse({ status: 404, description: 'Fare not found' })
   getFare(
     @Param('id', ParseUUIDPipe) routeId: string,
