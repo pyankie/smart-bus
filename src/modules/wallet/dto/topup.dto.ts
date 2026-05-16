@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, Max, Min } from 'class-validator';
 
 export class TopupDto {
-  @IsInt()
-  @Min(1000) // PROPOSAL — confirm
-  @Max(1000000) // PROPOSAL — confirm
-  @ApiProperty({ description: 'Amount in santim (minor units)', example: 5000 })
+  @IsNumber()
+  @Min(10)
+  @Max(10000)
+  @ApiProperty({ description: 'Amount in ETB', example: 50 })
   amount!: number;
 
   @IsString()
