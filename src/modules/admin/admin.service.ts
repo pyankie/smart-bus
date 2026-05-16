@@ -6,7 +6,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { TicketStatus, TripStatus, UserRole, UserStatus } from '@prisma-generated/client';
+import { ScanResult, TicketStatus, TripStatus, UserRole, UserStatus } from '@prisma-generated/client';
 import { hash } from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
@@ -263,12 +263,17 @@ export class AdminService {
         : {}),
     };
 
-    const [items, total] = await Promise.all([
+    const [trips, total] = await Promise.all([
       this.prisma.trip.findMany({
         where,
         include: {
           route: { select: { id: true, routeNumber: true, name: true } },
           driver: { select: { id: true, fullName: true, phone: true } },
+          _count: {
+            select: {
+              scanEvents: { where: { result: ScanResult.VALID, isInspection: false } },
+            },
+          },
         },
         skip: pagination.skip,
         take: pagination.take,
@@ -276,6 +281,8 @@ export class AdminService {
       }),
       this.prisma.trip.count({ where }),
     ]);
+
+    const items = trips.map(({ _count, ...trip }) => ({ ...trip, passengerCount: _count.scanEvents }));
 
     return { items, meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total) };
   }
