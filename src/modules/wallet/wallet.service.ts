@@ -44,8 +44,8 @@ export class WalletService {
     transaction: { id: string; amount: number; status: WalletTransactionStatus };
     paymentUrl: string;
   }> {
-    const min = this.config.get<number>('app.wallet.minTopupAmount') ?? 1000;
-    const max = this.config.get<number>('app.wallet.maxTopupAmount') ?? 1000000;
+    const min = this.config.get<number>('app.wallet.minTopupAmount') ?? 10;
+    const max = this.config.get<number>('app.wallet.maxTopupAmount') ?? 10000;
 
     const existing = await this.prisma.walletTransaction.findUnique({
       where: { idempotencyKey },
@@ -56,7 +56,7 @@ export class WalletService {
     }
 
     if (dto.amount < min || dto.amount > max) {
-      throw new BadRequestException(`Amount must be between ${min} and ${max} santim`);
+      throw new BadRequestException(`Amount must be between ${min} and ${max} ETB`);
     }
 
     const wallet = await this.prisma.wallet.findUnique({
