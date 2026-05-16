@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, Min } from 'class-validator';
+import { IsInt, IsNumber, Min } from 'class-validator';
 
 export class FareDto {
   @IsInt()
@@ -15,9 +15,9 @@ export class FareDto {
   @ApiProperty({ minimum: 1, description: 'Sequence number of the dropoff stop' })
   toStopSequence!: number;
 
-  @IsInt()
-  @Min(1)
+  @IsNumber()
+  @Min(0.01)
   @Type(() => Number)
-  @ApiProperty({ minimum: 1, description: 'Fare amount in santim' })
+  @ApiProperty({ minimum: 0.01, description: 'Fare amount in ETB' })
   amount!: number;
 }
