@@ -15,6 +15,15 @@ const TRIP_INCLUDE = {
   route: { select: { id: true, routeNumber: true, name: true } },
 } as const;
 
+const TRIP_LIST_INCLUDE = {
+  route: { select: { id: true, routeNumber: true, name: true } },
+  _count: {
+    select: {
+      scanEvents: { where: { result: ScanResult.VALID, isInspection: false } },
+    },
+  },
+} as const;
+
 @Injectable()
 export class TripsService {
   constructor(
@@ -41,10 +50,10 @@ export class TripsService {
         : {}),
     };
 
-    const [items, total] = await Promise.all([
+    const [trips, total] = await Promise.all([
       this.prisma.trip.findMany({
         where,
-        include: TRIP_INCLUDE,
+        include: TRIP_LIST_INCLUDE,
         skip: pagination.skip,
         take: pagination.take,
         orderBy: pagination.orderBy,
@@ -53,7 +62,7 @@ export class TripsService {
     ]);
 
     return {
-      items,
+      items: trips.map(({ _count, ...trip }) => ({ ...trip, passengerCount: _count.scanEvents })),
       meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
     };
   }
@@ -74,7 +83,7 @@ export class TripsService {
     const summary = this.buildSummary(trip.scanEvents);
     const { scanEvents: _, ...tripData } = trip;
 
-    return { ...tripData, summary };
+    return { ...tripData, summary, passengerCount: summary.validScans };
   }
 
   async startTrip(driverId: string, tripId: string) {
@@ -136,7 +145,7 @@ export class TripsService {
     const summary = this.buildSummary(updated.scanEvents);
     const { scanEvents: _, ...tripData } = updated;
 
-    return { ...tripData, summary };
+    return { ...tripData, summary, passengerCount: summary.validScans };
   }
 
   // ─── Internal ─────────────────────────────────────────────────────────────
