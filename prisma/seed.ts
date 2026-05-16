@@ -35,9 +35,9 @@ if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED_IN_PROD !== 
 const prisma = new PrismaClient();
 
 // ─── Fare helpers ────────────────────────────────────────────────────────────
-// Simple linear pricing: 500 birr per stop-distance (e.g. 2 hops → 1,000 birr)
+// Simple linear pricing: 5 ETB per stop-distance (e.g. 2 hops → 10 ETB)
 function fareAmount(fromSeq: number, toSeq: number): number {
-  return Math.abs(toSeq - fromSeq) * 500;
+  return Math.abs(toSeq - fromSeq) * 5;
 }
 
 function buildFares(routeId: string, stops: { id: string; sequence: number }[]) {
@@ -156,7 +156,7 @@ const USERS = {
       fid: 'ETH-DEMO-0001',
       password: 'Passenger123!',
       role: UserRole.PASSENGER,
-      walletBalance: 100_000, // 1,000 ETB
+      walletBalance: 1000,
     },
     {
       phone: '+251922333333',
@@ -165,7 +165,7 @@ const USERS = {
       fid: 'ETH-DEMO-0002',
       password: 'Passenger123!',
       role: UserRole.PASSENGER,
-      walletBalance: 50_000, // 500 ETB
+      walletBalance: 500,
     },
     {
       phone: '+251922444444',
@@ -174,7 +174,7 @@ const USERS = {
       fid: 'ETH-DEMO-0003',
       password: 'Passenger123!',
       role: UserRole.PASSENGER,
-      walletBalance: 200_000, // 2,000 ETB
+      walletBalance: 2000,
     },
     {
       phone: '+251922555555',
@@ -183,7 +183,7 @@ const USERS = {
       fid: 'ETH-DEMO-0004',
       password: 'Passenger123!',
       role: UserRole.PASSENGER,
-      walletBalance: 5_000, // 50 ETB (low balance for testing)
+      walletBalance: 50, // low balance for testing
     },
     {
       phone: '+251922666666',
@@ -192,7 +192,7 @@ const USERS = {
       fid: 'ETH-DEMO-0005',
       password: 'Passenger123!',
       role: UserRole.PASSENGER,
-      walletBalance: 150_000, // 1,500 ETB
+      walletBalance: 1500,
     },
   ],
 };
@@ -677,7 +677,7 @@ async function main(): Promise<void> {
   USERS.passengers.forEach((passenger) => {
     console.log(`     • ${passenger.phone} / ${passenger.password}`);
     console.log(`       FID: ${passenger.fid}`);
-    console.log(`       Balance: ${passenger.walletBalance / 100} ETB`);
+    console.log(`       Balance: ${passenger.walletBalance} ETB`);
   });
 
   console.log('\n🗺️  ROUTES:');
