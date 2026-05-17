@@ -23,7 +23,6 @@ export class PaymentProvider {
     method: string,
     callbackUrl: string,
     customer: {
-      email?: string | null;
       firstName: string;
       lastName: string;
       phone: string;
@@ -54,7 +53,6 @@ export class PaymentProvider {
         body: JSON.stringify({
           amount: amount.toString(),
           currency: 'ETB',
-          email: customer.email ?? `user.${customer.phone}@smartbus.et`,
           first_name: customer.firstName,
           last_name: customer.lastName,
           phone_number: customer.phone,
@@ -94,7 +92,6 @@ export class PaymentProvider {
         chapaMessage: data.message,
         hasCheckoutUrl: !!data.data?.checkout_url,
         txRef,
-        email: customer.email ?? `user.${customer.phone}@smartbus.et`,
         phone: customer.phone,
         amount,
       });

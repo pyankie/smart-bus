@@ -71,7 +71,6 @@ export class WalletService {
 
     const [firstName, ...rest] = wallet.user.fullName.trim().split(/\s+/);
     const provider = await this.payment.initiate(dto.amount, dto.paymentMethod, callbackUrl, {
-      email: wallet.user.email,
       firstName: firstName || 'User',
       lastName: rest.join(' ') || 'Passenger',
       phone: wallet.user.phone,
