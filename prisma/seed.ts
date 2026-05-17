@@ -109,20 +109,20 @@ const ROUTES = [
 // ─── Users ───────────────────────────────────────────────────────────────────
 const USERS = {
   superAdmin: {
-    phone: '+251900000000',
+    phone: '0900000000',
     fullName: 'System Administrator',
     password: 'Admin123!',
     role: UserRole.SUPER_ADMIN,
   },
   admins: [
     {
-      phone: '+251900111111',
+      phone: '0900111111',
       fullName: 'Mulugeta Assefa',
       password: 'Admin123!',
       role: UserRole.ADMIN,
     },
     {
-      phone: '+251900222222',
+      phone: '0900222222',
       fullName: 'Tigist Haile',
       password: 'Admin123!',
       role: UserRole.ADMIN,
@@ -130,19 +130,19 @@ const USERS = {
   ],
   drivers: [
     {
-      phone: '+251911111111',
+      phone: '0911111111',
       fullName: 'Dawit Bekele',
       password: 'Driver123!',
       role: UserRole.DRIVER,
     },
     {
-      phone: '+251911222222',
+      phone: '0911222222',
       fullName: 'Solomon Tesfaye',
       password: 'Driver123!',
       role: UserRole.DRIVER,
     },
     {
-      phone: '+251911333333',
+      phone: '0911333333',
       fullName: 'Yohannes Tadesse',
       password: 'Driver123!',
       role: UserRole.DRIVER,
@@ -150,7 +150,7 @@ const USERS = {
   ],
   passengers: [
     {
-      phone: '+251922222222',
+      phone: '0922222222',
       fullName: 'Abebe Kebede Tekle',
       email: 'abebe@example.com',
       fid: 'ETH-DEMO-0001',
@@ -159,7 +159,7 @@ const USERS = {
       walletBalance: 1000,
     },
     {
-      phone: '+251922333333',
+      phone: '0922333333',
       fullName: 'Sara Alemayehu',
       email: 'sara@example.com',
       fid: 'ETH-DEMO-0002',
@@ -168,7 +168,7 @@ const USERS = {
       walletBalance: 500,
     },
     {
-      phone: '+251922444444',
+      phone: '0922444444',
       fullName: 'Mekdes Yilma',
       email: 'mekdes@example.com',
       fid: 'ETH-DEMO-0003',
@@ -177,7 +177,7 @@ const USERS = {
       walletBalance: 2000,
     },
     {
-      phone: '+251922555555',
+      phone: '0922555555',
       fullName: 'Henok Getachew',
       email: 'henok@example.com',
       fid: 'ETH-DEMO-0004',
@@ -186,7 +186,7 @@ const USERS = {
       walletBalance: 50, // low balance for testing
     },
     {
-      phone: '+251922666666',
+      phone: '0922666666',
       fullName: 'Betelehem Wondimu',
       email: 'betelehem@example.com',
       fid: 'ETH-DEMO-0005',
@@ -711,7 +711,7 @@ async function main(): Promise<void> {
   console.log('   1. Use passenger phones/FIDs to test login flows');
   console.log('   2. Use driver accounts to test trip management & scanning');
   console.log('   3. Use admin accounts to test administrative features');
-  console.log('   4. Low-balance passenger (+251922555555) for insufficient funds testing');
+  console.log('   4. Low-balance passenger (0922555555) for insufficient funds testing');
   console.log('   5. Active tickets ready for purchase and validation testing');
   console.log('   6. OTP code "123456" available for password reset testing');
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
