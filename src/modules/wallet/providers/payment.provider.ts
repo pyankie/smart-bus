@@ -54,7 +54,7 @@ export class PaymentProvider {
         body: JSON.stringify({
           amount: amount.toString(),
           currency: 'ETB',
-          email: customer.email ?? `${customer.phone}@smartbus.local`,
+          email: customer.email ?? `user.${customer.phone}@smartbus.et`,
           first_name: customer.firstName,
           last_name: customer.lastName,
           phone_number: customer.phone,
