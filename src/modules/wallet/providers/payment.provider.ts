@@ -38,7 +38,7 @@ export class PaymentProvider {
       };
     }
 
-    const txRef = `topup-${randomUUID()}`;
+    const txRef = randomUUID(); // max 36 chars — Chapa rejects longer tx_ref values
 
     let response: Response;
     try {
@@ -59,7 +59,7 @@ export class PaymentProvider {
           callback_url: callbackUrl,
           return_url: returnUrl,
           customization: {
-            title: 'SmartBus Wallet Top-up',
+            title: 'SmartBus Top-up', // max 16 chars enforced by Chapa
             description: `Wallet top-up via ${method}`,
           },
         }),
