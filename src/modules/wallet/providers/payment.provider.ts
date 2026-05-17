@@ -94,6 +94,7 @@ export class PaymentProvider {
         chapaMessage: data.message,
         hasCheckoutUrl: !!data.data?.checkout_url,
         txRef,
+        email: customer.email ?? `user.${customer.phone}@smartbus.et`,
         phone: customer.phone,
         amount,
       });
