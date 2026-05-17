@@ -30,13 +30,13 @@ export class PaymentProvider {
   ): Promise<PaymentProviderResult> {
     const secretKey = this.config.get<string>('CHAPA_SECRET_KEY');
     const baseUrl = this.config.get<string>('app.chapa.baseUrl') ?? 'https://api.chapa.co/v1';
-    const returnUrl = this.config.get<string>('app.chapa.returnUrl') ?? callbackUrl;
+    const returnUrl = this.config.get<string>('app.chapa.returnUrl');
 
     // Development fallback
     if (!secretKey) {
       return {
         externalRef: `mock-${randomUUID()}`,
-        paymentUrl: `${returnUrl}?status=mock_success`,
+        paymentUrl: `${returnUrl ?? callbackUrl}?status=mock_success`,
       };
     }
 
@@ -58,7 +58,7 @@ export class PaymentProvider {
           phone_number: customer.phone,
           tx_ref: txRef,
           callback_url: callbackUrl,
-          return_url: returnUrl,
+          ...(returnUrl && { return_url: returnUrl }),
           customization: {
             title: 'SmartBus Top-up', // max 16 chars enforced by Chapa
             description: `Wallet top-up via ${method}`,
