@@ -27,8 +27,8 @@ export class CreateUserDto {
   fullName!: string;
 
   @IsString()
-  @Matches(/^\+251[0-9]{9}$/, { message: 'phone must be a valid Ethiopian number (+251XXXXXXXXX)' })
-  @ApiProperty({ example: '+251912345678' })
+  @Matches(/^0[79][0-9]{8}$/, { message: 'phone must be a valid Ethiopian mobile number (09XXXXXXXX for Ethiotelecom, 07XXXXXXXX for Safaricom)' })
+  @ApiProperty({ example: '0912345678' })
   phone!: string;
 
   @IsOptional()

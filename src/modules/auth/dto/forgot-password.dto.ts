@@ -3,10 +3,10 @@ import { IsNotEmpty, IsString, Matches } from 'class-validator';
 
 export class ForgotPasswordDto {
   @IsString()
-  @Matches(/^\+251[0-9]{9}$/, {
-    message: 'Phone must be Ethiopian format +251XXXXXXXXX',
+  @Matches(/^0[79][0-9]{8}$/, {
+    message: 'Phone must be a valid Ethiopian mobile number (09XXXXXXXX or 07XXXXXXXX)',
   })
-  @ApiProperty({ example: '+251912345678' })
+  @ApiProperty({ example: '0912345678' })
   phone!: string;
 
   @IsString()
