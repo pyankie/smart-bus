@@ -247,8 +247,8 @@ model WalletTransaction {
 // =====================================================================
 
 model Route {
-  id          String  @id @default(uuid())
-  routeNumber String  @unique @map("route_number")
+  id          String @id @default(uuid())
+  routeNumber String @unique @map("route_number")
   // Localized: { en: string, am: string }
   name        Json
   // Localized: { en: string, am: string }
@@ -264,11 +264,11 @@ model Route {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  stops       Stop[]
-  segments   RouteSegment[]
-  fares       Fare[]
-  trips       Trip[]
-  tickets     Ticket[]
+  stops    Stop[]
+  segments RouteSegment[]
+  fares    Fare[]
+  trips    Trip[]
+  tickets  Ticket[]
 
   @@index([isActive, deletedAt])
   @@map("routes")
@@ -288,10 +288,10 @@ model Stop {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  faresFrom       Fare[]   @relation("FareFromStop")
-  faresTo         Fare[]   @relation("FareToStop")
-  ticketsBoarding Ticket[] @relation("TicketBoardingStop")
-  ticketsDropoff  Ticket[] @relation("TicketDropoffStop")
+  faresFrom       Fare[]         @relation("FareFromStop")
+  faresTo         Fare[]         @relation("FareToStop")
+  ticketsBoarding Ticket[]       @relation("TicketBoardingStop")
+  ticketsDropoff  Ticket[]       @relation("TicketDropoffStop")
   segmentsFrom    RouteSegment[] @relation("SegmentFrom")
   segmentsTo      RouteSegment[] @relation("SegmentTo")
 
@@ -301,17 +301,17 @@ model Stop {
 }
 
 model RouteSegment {
-  id        String   @id @default(uuid())
-  routeId   String   @map("route_id")
-  route      Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  id      String @id @default(uuid())
+  routeId String @map("route_id")
+  route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
 
-  fromStopId String   @map("from_stop_id")
-  fromStop   Stop     @relation("SegmentFrom", fields: [fromStopId], references: [id])
-  toStopId   String   @map("to_stop_id")
-  toStop     Stop     @relation("SegmentTo", fields: [toStopId], references: [id])
+  fromStopId String @map("from_stop_id")
+  fromStop   Stop   @relation("SegmentFrom", fields: [fromStopId], references: [id])
+  toStopId   String @map("to_stop_id")
+  toStop     Stop   @relation("SegmentTo", fields: [toStopId], references: [id])
 
-  distance  Int      @map("distance") // in meters
-  duration  Int      @map("duration") // in minutes
+  distance Int @map("distance") // in meters
+  duration Int @map("duration") // in minutes
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -439,10 +439,47 @@ model ScanEvent {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  anomalyFlags AnomalyFlag[]
+
   @@index([ticketId, scannedAt])
   @@index([driverId, scannedAt])
   @@index([tripId])
   @@map("scan_events")
+}
+
+// =====================================================================
+// ANOMALY FLAGS (fraud / scan anomaly audits from ML subsystem)
+// =====================================================================
+
+enum AnomalySeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AnomalySource {
+  ML
+  RULE_FALLBACK
+}
+
+model AnomalyFlag {
+  id          String     @id @default(uuid())
+  scanEventId String?    @map("scan_event_id")
+  scanEvent   ScanEvent? @relation(fields: [scanEventId], references: [id], onDelete: SetNull)
+
+  source       AnomalySource
+  severity     AnomalySeverity
+  anomalyScore Float           @map("anomaly_score")
+  reasons      Json
+
+  reviewedBy String?   @map("reviewed_by")
+  reviewedAt DateTime? @map("reviewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([severity, createdAt])
+  @@index([scanEventId])
+  @@map("anomaly_flags")
 }
 
 // =====================================================================
