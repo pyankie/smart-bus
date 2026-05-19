@@ -9,6 +9,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { QrService, type QrPayloadData } from '../tickets/qr.service';
 import { TripsService } from '../trips/trips.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import {
+  DEFAULT_LOCALE,
+  Locale,
+  localize,
+} from '../../common/utils/localized-string';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ValidateTicketDto } from './dto/validate-ticket.dto';
 
@@ -32,7 +37,7 @@ export class ValidationService {
     private tripsService: TripsService,
   ) {}
 
-  async validateTicket(driverId: string, dto: ValidateTicketDto) {
+  async validateTicket(driverId: string, dto: ValidateTicketDto, locale: Locale = DEFAULT_LOCALE) {
     const isInspection = dto.inspectionMode ?? false;
     const scannedAt = new Date();
 
@@ -95,7 +100,7 @@ export class ValidationService {
       });
       throw new GoneException({
         result: ScanResult.EXPIRED,
-        ticket,
+        ticket: this.localizeTicket(ticket, locale),
         passenger,
         scannedAt,
         isInspection,
@@ -114,7 +119,7 @@ export class ValidationService {
       });
       throw new ConflictException({
         result: ScanResult.ALREADY_USED,
-        ticket,
+        ticket: this.localizeTicket(ticket, locale),
         passenger,
         scannedAt,
         isInspection,
@@ -169,10 +174,23 @@ export class ValidationService {
 
     return {
       result: finalResult,
-      ticket: finalTicket,
+      ticket: this.localizeTicket(finalTicket, locale),
       passenger,
       scannedAt,
       isInspection,
+    };
+  }
+
+  private localizeTicket<T extends {
+    route: { routeNumber: string; name: unknown };
+    boardingStop: { name: unknown };
+    dropoffStop: { name: unknown };
+  }>(ticket: T, locale: Locale) {
+    return {
+      ...ticket,
+      route: { ...ticket.route, name: localize(ticket.route.name, locale) },
+      boardingStop: { ...ticket.boardingStop, name: localize(ticket.boardingStop.name, locale) },
+      dropoffStop: { ...ticket.dropoffStop, name: localize(ticket.dropoffStop.name, locale) },
     };
   }
 

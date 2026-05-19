@@ -14,10 +14,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma-generated/client';
+import { CurrentLocale } from '../../common/decorators/current-locale.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import type { Locale } from '../../common/utils/localized-string';
 import { ValidateTicketDto } from './dto/validate-ticket.dto';
 import { ValidationService } from './validation.service';
 
@@ -34,8 +36,12 @@ export class ValidationController {
   @ApiResponse({ status: 400, description: 'Invalid signature or malformed payload' })
   @ApiResponse({ status: 409, description: 'Ticket already used' })
   @ApiResponse({ status: 410, description: 'Ticket expired' })
-  validateTicket(@CurrentUser() user: JwtPayload, @Body() dto: ValidateTicketDto) {
-    return this.validation.validateTicket(user.sub, dto);
+  validateTicket(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ValidateTicketDto,
+    @CurrentLocale() locale: Locale,
+  ) {
+    return this.validation.validateTicket(user.sub, dto, locale);
   }
 
   @Get('trips/:tripId/scans')
