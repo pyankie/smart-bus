@@ -1,7 +1,9 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { TicketStatus } from '@prisma-generated/client';
 import { randomUUID } from 'crypto';
@@ -16,6 +18,7 @@ import {
   MessageTemplates,
   renderAllLocales,
 } from '../../common/utils/message-templates';
+import { NotificationsService } from '../notifications/notifications.service';
 import { WalletService } from '../wallet/wallet.service';
 import { RoutesService } from '../routes/routes.service';
 import { QrService } from './qr.service';
@@ -32,11 +35,14 @@ const TICKET_INCLUDE = {
 
 @Injectable()
 export class TicketsService {
+  private readonly logger = new Logger(TicketsService.name);
+
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
     private routesService: RoutesService,
     private qrService: QrService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async purchase(
@@ -144,6 +150,47 @@ export class TicketsService {
     }
 
     return this.localizeTicket(ticket, locale);
+  }
+
+  async dropSignal(passengerId: string, ticketId: string, locale: Locale = DEFAULT_LOCALE) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { dropoffStop: { select: { name: true } } },
+    });
+
+    if (!ticket || ticket.passengerId !== passengerId) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    if (ticket.status !== TicketStatus.USED) {
+      throw new UnprocessableEntityException('Drop signal is only available for boarded tickets');
+    }
+
+    const scanEvent = await this.prisma.scanEvent.findFirst({
+      where: { ticketId },
+      orderBy: { scannedAt: 'desc' },
+      select: { tripId: true, trip: { select: { driverId: true } } },
+    });
+
+    if (!scanEvent?.trip) {
+      throw new UnprocessableEntityException('No active trip linked to this ticket');
+    }
+
+    const stopName = localize(ticket.dropoffStop.name, locale);
+    const driverId = scanEvent.trip.driverId;
+
+    try {
+      await this.notificationsService.sendPush(
+        driverId,
+        'Drop Requested',
+        `A passenger is requesting to drop off at ${stopName}`,
+        { ticketId, stopName },
+      );
+    } catch {
+      this.logger.warn(`Push failed for drop signal: driverId=${driverId}, ticketId=${ticketId}`);
+    }
+
+    return { signaled: true, dropoffStop: stopName };
   }
 
   private localizeTicket<T extends {
