@@ -55,6 +55,16 @@ const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
+
+  // ML Subsystem (Python FastAPI sidecar)
+  ML_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  ML_SERVICE_ROUTE_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).default('3000'),
+  ML_SERVICE_ANOMALY_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).default('1500'),
+  ML_SERVICE_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
+  ML_SERVICE_TOKEN: z.string().optional(),
 });
 
 export type EnvironmentVariables = z.infer<typeof envSchema>;

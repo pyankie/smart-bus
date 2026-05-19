@@ -28,4 +28,11 @@ export default registerAs('app', () => ({
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   },
+  ml: {
+    serviceUrl: process.env.ML_SERVICE_URL ?? 'http://localhost:8000',
+    routeTimeoutMs: parseInt(process.env.ML_SERVICE_ROUTE_TIMEOUT_MS ?? '3000', 10),
+    anomalyTimeoutMs: parseInt(process.env.ML_SERVICE_ANOMALY_TIMEOUT_MS ?? '1500', 10),
+    enabled: process.env.ML_SERVICE_ENABLED === 'true',
+    token: process.env.ML_SERVICE_TOKEN,
+  },
 }));
