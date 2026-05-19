@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Prisma } from '@prisma-generated/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import {
+  DEFAULT_LOCALE,
+  Locale,
+  localize,
+  localizeNullable,
+  SUPPORTED_LOCALES,
+} from '../../common/utils/localized-string';
 import { RouteQueryDto } from './dto/route-query.dto';
 import { RouteSearchDto } from './dto/route-search.dto';
 import { CreateRouteDto } from './dto/create-route.dto';
@@ -19,11 +27,15 @@ const STOPS_AND_FARES_AND_SEGMENTS = {
   segments: { include: { fromStop: true, toStop: true } },
 };
 
+type RouteWithRelations = Prisma.RouteGetPayload<{
+  include: typeof STOPS_AND_FARES_AND_SEGMENTS;
+}>;
+
 @Injectable()
 export class RoutesService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(query: RouteQueryDto) {
+  async findAll(query: RouteQueryDto, locale: Locale = DEFAULT_LOCALE) {
     const sortBy = this.normalizeSortBy(query.sortBy);
     const pagination = buildPagination({ ...query, sortBy });
 
@@ -39,22 +51,34 @@ export class RoutesService {
     ]);
 
     return {
-      items: items.map((route) => this.transformRoute(route)),
+      items: items.map((route) => this.transformRoute(route, locale)),
       meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
     };
   }
 
-  async search(query: RouteSearchDto) {
+  async search(query: RouteSearchDto, locale: Locale = DEFAULT_LOCALE) {
     const sortBy = this.normalizeSortBy(query.sortBy);
     const pagination = buildPagination({ ...query, sortBy });
     const { q, departure, destination } = query;
 
-    const textWhere = q
+    const textWhere: Prisma.RouteWhereInput = q
       ? {
           OR: [
             { routeNumber: { contains: q, mode: 'insensitive' as const } },
-            { name: { contains: q, mode: 'insensitive' as const } },
-            { stops: { some: { name: { contains: q, mode: 'insensitive' as const } } } },
+            ...SUPPORTED_LOCALES.map(
+              (loc): Prisma.RouteWhereInput => ({
+                name: { path: [loc], string_contains: q },
+              }),
+            ),
+            {
+              stops: {
+                some: {
+                  OR: SUPPORTED_LOCALES.map((loc) => ({
+                    name: { path: [loc], string_contains: q },
+                  })),
+                },
+              },
+            },
           ],
         }
       : {};
@@ -71,23 +95,22 @@ export class RoutesService {
       routes = routes.filter((route) => {
         const stops = route.stops;
         const depStop = departure
-          ? stops.find((s) => s.name.toLowerCase().includes(departure.toLowerCase()))
+          ? stops.find((s) => this.matchesAnyLocale(s.name, departure))
           : null;
         const destStop = destination
-          ? stops.find((s) => s.name.toLowerCase().includes(destination.toLowerCase()))
+          ? stops.find((s) => this.matchesAnyLocale(s.name, destination))
           : null;
 
         if (departure && !depStop) return false;
         if (destination && !destStop) return false;
-        // Both stops exist on the route — direction is a trip-level concern, not route-level
         return true;
       });
     }
 
-    return { items: routes.map((route) => this.transformRoute(route)) };
+    return { items: routes.map((route) => this.transformRoute(route, locale)) };
   }
 
-  async findById(id: string) {
+  async findById(id: string, locale: Locale = DEFAULT_LOCALE) {
     const route = await this.prisma.route.findUnique({
       where: { id },
       include: STOPS_AND_FARES_AND_SEGMENTS,
@@ -97,7 +120,7 @@ export class RoutesService {
       throw new NotFoundException('Route not found');
     }
 
-    return this.transformRoute(route);
+    return this.transformRoute(route, locale);
   }
 
   async getFare(routeId: string, boardingStopId: string, dropoffStopId: string) {
@@ -142,7 +165,7 @@ export class RoutesService {
         data: {
           routeNumber,
           name: dto.name,
-          description: dto.description,
+          ...(dto.description !== undefined ? { description: dto.description } : {}),
           ...(dto.estimatedDuration !== undefined && {
             estimatedDuration: dto.estimatedDuration,
           }),
@@ -204,18 +227,20 @@ export class RoutesService {
   }
 
   async update(id: string, dto: UpdateRouteDto) {
-    await this.assertExists(id);
+    const existing = await this.assertExists(id);
 
-    return this.prisma.route.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
-        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
-        ...(dto.estimatedDuration !== undefined ? { estimatedDuration: dto.estimatedDuration } : {}),
-        ...(dto.estimatedDistance !== undefined ? { estimatedDistance: dto.estimatedDistance } : {}),
-      },
-    });
+    const data: Prisma.RouteUpdateInput = {};
+    if (dto.name !== undefined) {
+      data.name = this.mergeLocalized(existing.name, dto.name);
+    }
+    if (dto.description !== undefined) {
+      data.description = this.mergeLocalized(existing.description, dto.description);
+    }
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.estimatedDuration !== undefined) data.estimatedDuration = dto.estimatedDuration;
+    if (dto.estimatedDistance !== undefined) data.estimatedDistance = dto.estimatedDistance;
+
+    return this.prisma.route.update({ where: { id }, data });
   }
 
   async updateStops(routeId: string, stops: StopDto[]) {
@@ -314,31 +339,7 @@ export class RoutesService {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  private transformRoute(route: {
-    id: string;
-    routeNumber: string;
-    name: string;
-    description: string | null;
-    isActive: boolean;
-    estimatedDuration: number | null;
-    estimatedDistance: number | null;
-    createdAt: Date;
-    updatedAt: Date;
-    stops: {
-      id: string;
-      name: string;
-      sequence: number;
-      latitude?: number | null;
-      longitude?: number | null;
-    }[];
-    fares: { fromStopId: string; toStopId: string; amount: number }[];
-    segments?: {
-      fromStop: { sequence: number };
-      toStop: { sequence: number };
-      distance: number;
-      duration: number;
-    }[];
-  }): RouteResponseDto {
+  transformRoute(route: RouteWithRelations, locale: Locale = DEFAULT_LOCALE): RouteResponseDto {
     const sortedStops = [...route.stops].sort((a, b) => a.sequence - b.sequence);
     const startStop = sortedStops[0];
     const endStop = sortedStops[sortedStops.length - 1];
@@ -347,7 +348,6 @@ export class RoutesService {
       route.fares.find((f) => f.fromStopId === startStop.id && f.toStopId === endStop.id)
         ?.amount ?? 0;
 
-    // Index forward-consecutive segments by their fromStop sequence
     const segByFromSeq = new Map<number, { distance: number; duration: number }>();
     for (const seg of route.segments ?? []) {
       if (seg.fromStop.sequence + 1 === seg.toStop.sequence) {
@@ -363,7 +363,7 @@ export class RoutesService {
       const fromPrev = segByFromSeq.get(stop.sequence - 1) ?? null;
       return {
         id: stop.id,
-        name: stop.name,
+        name: localize(stop.name, locale),
         sequence: stop.sequence,
         ...(stop.latitude != null && { latitude: stop.latitude }),
         ...(stop.longitude != null && { longitude: stop.longitude }),
@@ -374,7 +374,6 @@ export class RoutesService {
       };
     });
 
-    // Prefer summed-segment totals; fall back to stored estimates
     const segValues = [...segByFromSeq.values()];
     const distance =
       segValues.length > 0
@@ -397,13 +396,13 @@ export class RoutesService {
     return {
       id: route.id,
       routeNumber: route.routeNumber,
-      name: route.name,
-      description: route.description ?? undefined,
+      name: localize(route.name, locale),
+      description: localizeNullable(route.description, locale) ?? undefined,
       isActive: route.isActive,
       duration,
       distance,
-      startStopName: startStop.name,
-      endStopName: endStop.name,
+      startStopName: localize(startStop.name, locale),
+      endStopName: localize(endStop.name, locale),
       totalStops: sortedStops.length,
       price: fare,
       fares,
@@ -411,6 +410,30 @@ export class RoutesService {
       createdAt: route.createdAt,
       updatedAt: route.updatedAt,
     };
+  }
+
+  private matchesAnyLocale(name: Prisma.JsonValue, needle: string): boolean {
+    const lower = needle.toLowerCase();
+    for (const loc of SUPPORTED_LOCALES) {
+      const v = localize(name, loc).toLowerCase();
+      if (v.includes(lower)) return true;
+    }
+    return false;
+  }
+
+  private mergeLocalized(
+    existing: Prisma.JsonValue | null | undefined,
+    patch: Record<string, string | undefined>,
+  ): Prisma.InputJsonValue {
+    const base = (typeof existing === 'object' && existing !== null
+      ? (existing as Record<string, unknown>)
+      : {}) as Record<string, string>;
+    const merged: Record<string, string> = { ...base };
+    for (const key of Object.keys(patch)) {
+      const v = patch[key];
+      if (typeof v === 'string' && v.length > 0) merged[key] = v;
+    }
+    return merged as unknown as Prisma.InputJsonValue;
   }
 
   private validateSegments(segments: RouteSegmentDto[]) {
@@ -439,11 +462,12 @@ export class RoutesService {
   private async assertExists(id: string) {
     const route = await this.prisma.route.findUnique({
       where: { id },
-      select: { id: true, deletedAt: true },
+      select: { id: true, name: true, description: true, deletedAt: true },
     });
     if (!route || route.deletedAt) {
       throw new NotFoundException('Route not found');
     }
+    return route;
   }
 
   private normalizeSortBy(value?: string): string {
