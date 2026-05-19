@@ -76,4 +76,17 @@ export class TicketsController {
   ) {
     return this.tickets.findOneForUser(user.sub, id, locale);
   }
+
+  @Post(':id/drop-signal')
+  @ApiOperation({ summary: 'Signal the driver that you want to drop off' })
+  @ApiResponse({ status: 201, description: 'Drop signal sent to driver' })
+  @ApiResponse({ status: 404, description: 'Ticket not found' })
+  @ApiResponse({ status: 422, description: 'Ticket not boarded or no active trip' })
+  dropSignal(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentLocale() locale: Locale,
+  ) {
+    return this.tickets.dropSignal(user.sub, id, locale);
+  }
 }
