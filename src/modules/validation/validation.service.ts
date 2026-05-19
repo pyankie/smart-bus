@@ -3,11 +3,15 @@ import {
   ConflictException,
   GoneException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { ScanResult, TicketStatus } from '@prisma-generated/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MlService } from '../ml/ml.service';
+import type { ScanAnomalyRequestDto } from '../ml/dto/scan-anomaly.dto';
 import { QrService, type QrPayloadData } from '../tickets/qr.service';
 import { TripsService } from '../trips/trips.service';
+import { AnomalyService } from './anomaly.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
 import {
   DEFAULT_LOCALE,
@@ -25,16 +29,20 @@ const TICKET_SELECT = {
   expiresAt: true,
   passengerId: true,
   route: { select: { routeNumber: true, name: true } },
-  boardingStop: { select: { name: true } },
+  boardingStop: { select: { id: true, name: true } },
   dropoffStop: { select: { name: true } },
 } as const;
 
 @Injectable()
 export class ValidationService {
+  private readonly logger = new Logger(ValidationService.name);
+
   constructor(
     private prisma: PrismaService,
     private qrService: QrService,
     private tripsService: TripsService,
+    private mlService: MlService,
+    private anomalyService: AnomalyService,
   ) {}
 
   async validateTicket(driverId: string, dto: ValidateTicketDto, locale: Locale = DEFAULT_LOCALE) {
@@ -163,7 +171,7 @@ export class ValidationService {
     }
 
     // Step 7 — log scan
-    await this.logScan({
+    const scanEventId = await this.logScan({
       driverId,
       ticketId: ticket.id,
       tripId,
@@ -172,6 +180,24 @@ export class ValidationService {
       scannedAt,
     });
 
+    // Step 8 — dispatch ML anomaly audit (fire-and-forget, must not block scan)
+    if (!isInspection) {
+      this.dispatchAnomalyAudit({
+        scanEventId,
+        ticketId: ticket.id,
+        passengerId: ticket.passengerId,
+        boardingStopId: ticket.boardingStop?.id ?? null,
+        result: finalResult,
+        scannedAt,
+        fareAmount: Number(ticket.fareAmount),
+        purchasedAt: ticket.purchasedAt,
+        expiresAt: ticket.expiresAt,
+        deviceLat: dto.latitude,
+        deviceLng: dto.longitude,
+        deviceId: dto.deviceId,
+      });
+    }
+
     return {
       result: finalResult,
       ticket: this.localizeTicket(finalTicket, locale),
@@ -179,6 +205,73 @@ export class ValidationService {
       scannedAt,
       isInspection,
     };
+  }
+
+  /**
+   * Build the ML anomaly payload and dispatch without awaiting. Failures here
+   * never propagate to the driver-facing scan response (NFR-PERF-02 ≤ 1s).
+   */
+  private dispatchAnomalyAudit(params: {
+    scanEventId: string | null;
+    ticketId: string;
+    passengerId: string;
+    boardingStopId: string | null;
+    result: ScanResult;
+    scannedAt: Date;
+    fareAmount: number;
+    purchasedAt: Date;
+    expiresAt: Date;
+    deviceLat?: number;
+    deviceLng?: number;
+    deviceId?: string;
+  }): void {
+    void (async () => {
+      try {
+        const stop = params.boardingStopId
+          ? await this.prisma.stop.findUnique({
+              where: { id: params.boardingStopId },
+              select: { id: true, latitude: true, longitude: true },
+            })
+          : null;
+
+        // If we have neither device GPS nor a stop with coordinates, audit
+        // would degenerate to checks that don't depend on geo — still useful.
+        const stopLat = Number(stop?.latitude ?? params.deviceLat ?? 0);
+        const stopLng = Number(stop?.longitude ?? params.deviceLng ?? 0);
+
+        const payload: ScanAnomalyRequestDto = {
+          eventId: params.scanEventId ?? `EV-${params.ticketId}-${params.scannedAt.getTime()}`,
+          result: params.result,
+          isOffline: false,
+          scannedAt: params.scannedAt.toISOString(),
+          syncedAt: new Date().toISOString(),
+          syncDelaySeconds: 0,
+          scanMetadata: {
+            latitude: params.deviceLat ?? stopLat,
+            longitude: params.deviceLng ?? stopLng,
+            deviceId: params.deviceId ?? 'unknown',
+          },
+          ticketContext: {
+            ticketId: params.ticketId,
+            passengerId: params.passengerId,
+            fareAmount: params.fareAmount,
+            purchasedAt: params.purchasedAt.toISOString(),
+            expiresAt: params.expiresAt.toISOString(),
+            qrSignatureValid: params.result !== ScanResult.INVALID_SIGNATURE,
+          },
+          boardingStop: {
+            id: stop?.id ?? 'BS-UNKNOWN',
+            latitude: stopLat,
+            longitude: stopLng,
+          },
+        };
+
+        const audit = await this.mlService.detectScanAnomaly(payload);
+        await this.anomalyService.record(audit, params.scanEventId);
+      } catch (err) {
+        this.logger.warn(`Background anomaly audit failed: ${(err as Error).message}`);
+      }
+    })();
   }
 
   private localizeTicket<T extends {
@@ -268,9 +361,9 @@ export class ValidationService {
     result: ScanResult;
     isInspection: boolean;
     scannedAt: Date;
-  }) {
-    if (!params.ticketId) return; // ScanEvent.ticketId is non-nullable — skip if unknown
-    await this.prisma.scanEvent.create({
+  }): Promise<string | null> {
+    if (!params.ticketId) return null; // ScanEvent.ticketId is non-nullable — skip if unknown
+    const created = await this.prisma.scanEvent.create({
       data: {
         ticketId: params.ticketId,
         driverId: params.driverId,
@@ -280,7 +373,9 @@ export class ValidationService {
         isOffline: false,
         scannedAt: params.scannedAt,
       },
+      select: { id: true },
     });
+    return created.id;
   }
 
   private tryExtractTicketId(payload: string): string | null {
