@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { Prisma, TicketStatus } from '@prisma-generated/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../modules/wallet/wallet.service';
+import { MessageTemplates, renderAllLocales } from '../common/utils/message-templates';
 
 const BATCH_SIZE = 100;
 
@@ -39,7 +40,7 @@ export class TicketExpiryJob {
             ticket.passengerId,
             ticket.fareAmount,
             ticket.id,
-            'Expired ticket refund',
+            renderAllLocales(MessageTemplates.TICKET_REFUND_DESCRIPTION),
           );
 
           await tx.ticket.update({
