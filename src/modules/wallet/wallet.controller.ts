@@ -10,11 +10,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma-generated/client';
+import { CurrentLocale } from '../../common/decorators/current-locale.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { IdempotencyGuard } from '../../common/guards/idempotency.guard';
 import { IdempotencyInterceptor } from '../../common/interceptors/idempotency.interceptor';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import type { Locale } from '../../common/utils/localized-string';
 import { TopupDto } from './dto/topup.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { WalletService } from './wallet.service';
@@ -50,7 +52,11 @@ export class WalletController {
   @Get('transactions')
   @ApiOperation({ summary: 'List wallet transactions' })
   @ApiResponse({ status: 200, description: 'Transaction history' })
-  getTransactions(@CurrentUser() user: JwtPayload, @Query() query: TransactionQueryDto) {
-    return this.wallet.getTransactions(user.sub, query);
+  getTransactions(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: TransactionQueryDto,
+    @CurrentLocale() locale: Locale,
+  ) {
+    return this.wallet.getTransactions(user.sub, query, locale);
   }
 }

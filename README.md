@@ -2,8 +2,6 @@
 
 Backend service for the SmartBus digital ticketing and wallet system — a QR-based fare collection platform for public bus transit in Addis Ababa, Ethiopia.
 
----
-
 ## Table of Contents
 
 - [Overview](#overview)
@@ -154,11 +152,13 @@ Generate the Prisma client (run this after any schema change):
 npm run prisma:generate
 ```
 
-Optionally seed the database:
+**Seed comprehensive test data** (recommended for frontend testing):
 
 ```bash
 npm run prisma:seed
 ```
+
+This creates 11 users (admins, drivers, passengers), 3 routes, 5 trips, tickets, wallet transactions, and more. See [`prisma/TEST_DATA.md`](./prisma/TEST_DATA.md) for complete documentation.
 
 ### Running the API
 
@@ -206,6 +206,63 @@ All endpoints are under `/api/v1/`. Authenticated endpoints require a JWT access
 | Method | Endpoint  | Auth   | Description            |
 | ------ | --------- | ------ | ---------------------- |
 | GET    | `/health` | Public | Service liveness check |
+
+---
+
+## Test Data for Frontend Development
+
+Comprehensive test data is available for frontend (Flutter & Web Dashboard) integration testing.
+
+### Quick Access
+
+**Full Documentation**: [`prisma/TEST_DATA.md`](./prisma/TEST_DATA.md)  
+**Quick Reference**: [`prisma/QUICK_REFERENCE.md`](./prisma/QUICK_REFERENCE.md)  
+**Database Guide**: [`prisma/README.md`](./prisma/README.md)
+
+### Seed the Database
+
+```bash
+npm run prisma:seed
+```
+
+### Test Credentials
+
+**Passengers** (Mobile App):
+```
+Phone: +251922222222 | Password: Passenger123! | Balance: 1,000 ETB
+Phone: +251922555555 | Password: Passenger123! | Balance: 50 ETB (low balance)
+```
+
+**Drivers** (Mobile App):
+```
+Phone: +251911222222 | Password: Driver123! | Has active trip
+```
+
+**Admins** (Web Dashboard):
+```
+Phone: +251900000000 | Password: Admin123! | Role: SUPER_ADMIN
+```
+
+### What's Included
+
+- **11 Users**: Super admin, admins, drivers, passengers with varying balances
+- **3 Routes**: Real Addis Ababa locations with complete fare matrices
+- **5 Trips**: Completed, in-progress, and scheduled trips
+- **6 Tickets**: Active, used, expired, and refunded states
+- **Wallet Transactions**: Top-ups for all passengers
+- **Scan Events**: Valid, expired, and offline scans
+- **Notifications**: Sent, pending, and failed notifications
+- **OTP Codes**: Password reset testing (code: `123456`)
+
+### API Documentation
+
+Swagger UI (when `SWAGGER_ENABLED=true`):
+- **URL**: http://localhost:3000/docs
+- **API Base**: http://localhost:3000/api/v1
+
+See [`prisma/QUICK_REFERENCE.md`](./prisma/QUICK_REFERENCE.md) for common API flows and examples.
+
+---
 
 ### Response format
 

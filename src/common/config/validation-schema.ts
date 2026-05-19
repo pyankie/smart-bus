@@ -36,8 +36,8 @@ const envSchema = z.object({
   CHAPA_RETURN_URL: z.string().url().optional(),
   CHAPA_WEBHOOK_SECRET: z.string().optional(),
 
-  // QR signing — PROPOSAL: HMAC-SHA256; confirm before tickets module
-  QR_SIGNING_SECRET: z.string().min(32).optional(),
+  // QR signing — HMAC-SHA256
+  QR_SIGNING_SECRET: z.string().min(32),
 
   // Jobs
   ENABLE_CRON: z
@@ -55,6 +55,16 @@ const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
+
+  // ML Subsystem (Python FastAPI sidecar)
+  ML_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  ML_SERVICE_ROUTE_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).default('3000'),
+  ML_SERVICE_ANOMALY_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).default('1500'),
+  ML_SERVICE_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
+  ML_SERVICE_TOKEN: z.string().optional(),
 });
 
 export type EnvironmentVariables = z.infer<typeof envSchema>;

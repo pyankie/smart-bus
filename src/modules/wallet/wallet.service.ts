@@ -15,6 +15,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import {
+  DEFAULT_LOCALE,
+  Locale,
+  localizeNullable,
+  type LocalizedString,
+} from '../../common/utils/localized-string';
+import {
+  MessageTemplates,
+  renderAllLocales,
+} from '../../common/utils/message-templates';
 import { TopupDto } from './dto/topup.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { PaymentProvider } from './providers/payment.provider';
@@ -44,8 +54,8 @@ export class WalletService {
     transaction: { id: string; amount: number; status: WalletTransactionStatus };
     paymentUrl: string;
   }> {
-    const min = this.config.get<number>('app.wallet.minTopupAmount') ?? 1000;
-    const max = this.config.get<number>('app.wallet.maxTopupAmount') ?? 1000000;
+    const min = this.config.get<number>('app.wallet.minTopupAmount') ?? 10;
+    const max = this.config.get<number>('app.wallet.maxTopupAmount') ?? 10000;
 
     const existing = await this.prisma.walletTransaction.findUnique({
       where: { idempotencyKey },
@@ -56,7 +66,7 @@ export class WalletService {
     }
 
     if (dto.amount < min || dto.amount > max) {
-      throw new BadRequestException(`Amount must be between ${min} and ${max} santim`);
+      throw new BadRequestException(`Amount must be between ${min} and ${max} ETB`);
     }
 
     const wallet = await this.prisma.wallet.findUnique({
@@ -71,7 +81,6 @@ export class WalletService {
 
     const [firstName, ...rest] = wallet.user.fullName.trim().split(/\s+/);
     const provider = await this.payment.initiate(dto.amount, dto.paymentMethod, callbackUrl, {
-      email: wallet.user.email,
       firstName: firstName || 'User',
       lastName: rest.join(' ') || 'Passenger',
       phone: wallet.user.phone,
@@ -85,7 +94,7 @@ export class WalletService {
         amount: dto.amount,
         externalRef: provider.externalRef,
         idempotencyKey,
-        description: 'Wallet top-up initiated',
+        description: renderAllLocales(MessageTemplates.TOPUP_INITIATED_DESCRIPTION),
       },
     });
 
@@ -99,7 +108,11 @@ export class WalletService {
     };
   }
 
-  async getTransactions(userId: string, query: TransactionQueryDto) {
+  async getTransactions(
+    userId: string,
+    query: TransactionQueryDto,
+    locale: Locale = DEFAULT_LOCALE,
+  ) {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new NotFoundException('Wallet not found');
 
@@ -130,7 +143,7 @@ export class WalletService {
     ]);
 
     return {
-      items,
+      items: items.map((t) => ({ ...t, description: localizeNullable(t.description, locale) })),
       meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
     };
   }
@@ -170,7 +183,7 @@ export class WalletService {
     userId: string,
     amount: number,
     ticketId: string,
-    description: string,
+    description: LocalizedString,
   ): Promise<WalletTransaction> {
     const wallet = await tx.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new NotFoundException('Wallet not found');
@@ -230,7 +243,7 @@ export class WalletService {
           data: {
             status: WalletTransactionStatus.COMPLETED,
             balanceAfter: newBalance,
-            description: txn.description ?? 'Wallet top-up completed',
+            description: renderAllLocales(MessageTemplates.TOPUP_COMPLETED_DESCRIPTION),
           },
         });
       });
@@ -241,7 +254,7 @@ export class WalletService {
       where: { id: txn.id },
       data: {
         status: WalletTransactionStatus.FAILED,
-        description: txn.description ?? 'Wallet top-up failed',
+        description: renderAllLocales(MessageTemplates.TOPUP_FAILED_DESCRIPTION),
       },
     });
   }

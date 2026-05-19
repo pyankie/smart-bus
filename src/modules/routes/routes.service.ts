@@ -1,0 +1,478 @@
+import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Prisma } from '@prisma-generated/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import {
+  DEFAULT_LOCALE,
+  Locale,
+  localize,
+  localizeNullable,
+  SUPPORTED_LOCALES,
+} from '../../common/utils/localized-string';
+import { RouteQueryDto } from './dto/route-query.dto';
+import { RouteSearchDto } from './dto/route-search.dto';
+import { CreateRouteDto } from './dto/create-route.dto';
+import { UpdateRouteDto } from './dto/update-route.dto';
+import { StopDto } from './dto/stop.dto';
+import { FareDto } from './dto/fare.dto';
+import { RouteSegmentDto } from './dto/route-segment.dto';
+import { FareResponseDto } from './dto/fare-response.dto';
+import { RouteResponseDto } from './dto/route-response.dto';
+import { StopResponseDto } from './dto/stop-response.dto';
+
+const ACTIVE_ROUTE_FILTER = { isActive: true, deletedAt: null };
+const STOPS_AND_FARES_AND_SEGMENTS = {
+  stops: { orderBy: { sequence: 'asc' as const } },
+  fares: true,
+  segments: { include: { fromStop: true, toStop: true } },
+};
+
+type RouteWithRelations = Prisma.RouteGetPayload<{
+  include: typeof STOPS_AND_FARES_AND_SEGMENTS;
+}>;
+
+@Injectable()
+export class RoutesService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(query: RouteQueryDto, locale: Locale = DEFAULT_LOCALE) {
+    const sortBy = this.normalizeSortBy(query.sortBy);
+    const pagination = buildPagination({ ...query, sortBy });
+
+    const [items, total] = await Promise.all([
+      this.prisma.route.findMany({
+        where: ACTIVE_ROUTE_FILTER,
+        include: STOPS_AND_FARES_AND_SEGMENTS,
+        skip: pagination.skip,
+        take: pagination.take,
+        orderBy: pagination.orderBy,
+      }),
+      this.prisma.route.count({ where: ACTIVE_ROUTE_FILTER }),
+    ]);
+
+    return {
+      items: items.map((route) => this.transformRoute(route, locale)),
+      meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
+    };
+  }
+
+  async search(query: RouteSearchDto, locale: Locale = DEFAULT_LOCALE) {
+    const sortBy = this.normalizeSortBy(query.sortBy);
+    const pagination = buildPagination({ ...query, sortBy });
+    const { q, departure, destination } = query;
+
+    const textWhere: Prisma.RouteWhereInput = q
+      ? {
+          OR: [
+            { routeNumber: { contains: q, mode: 'insensitive' as const } },
+            ...SUPPORTED_LOCALES.map(
+              (loc): Prisma.RouteWhereInput => ({
+                name: { path: [loc], string_contains: q },
+              }),
+            ),
+            {
+              stops: {
+                some: {
+                  OR: SUPPORTED_LOCALES.map((loc) => ({
+                    name: { path: [loc], string_contains: q },
+                  })),
+                },
+              },
+            },
+          ],
+        }
+      : {};
+
+    let routes = await this.prisma.route.findMany({
+      where: { ...ACTIVE_ROUTE_FILTER, ...textWhere },
+      include: STOPS_AND_FARES_AND_SEGMENTS,
+      skip: pagination.skip,
+      take: pagination.take,
+      orderBy: pagination.orderBy,
+    });
+
+    if (departure || destination) {
+      routes = routes.filter((route) => {
+        const stops = route.stops;
+        const depStop = departure
+          ? stops.find((s) => this.matchesAnyLocale(s.name, departure))
+          : null;
+        const destStop = destination
+          ? stops.find((s) => this.matchesAnyLocale(s.name, destination))
+          : null;
+
+        if (departure && !depStop) return false;
+        if (destination && !destStop) return false;
+        return true;
+      });
+    }
+
+    return { items: routes.map((route) => this.transformRoute(route, locale)) };
+  }
+
+  async findById(id: string, locale: Locale = DEFAULT_LOCALE) {
+    const route = await this.prisma.route.findUnique({
+      where: { id },
+      include: STOPS_AND_FARES_AND_SEGMENTS,
+    });
+
+    if (!route || !route.isActive || route.deletedAt) {
+      throw new NotFoundException('Route not found');
+    }
+
+    return this.transformRoute(route, locale);
+  }
+
+  async getFare(routeId: string, boardingStopId: string, dropoffStopId: string) {
+    const [boardingStop, dropoffStop] = await Promise.all([
+      this.prisma.stop.findFirst({ where: { id: boardingStopId, routeId } }),
+      this.prisma.stop.findFirst({ where: { id: dropoffStopId, routeId } }),
+    ]);
+
+    if (!boardingStop || !dropoffStop) {
+      throw new NotFoundException('Stop not found on this route');
+    }
+
+    const fare = await this.prisma.fare.findUnique({
+      where: {
+        routeId_fromStopId_toStopId: {
+          routeId,
+          fromStopId: boardingStopId,
+          toStopId: dropoffStopId,
+        },
+      },
+    });
+
+    if (!fare) {
+      throw new NotFoundException('No fare defined for this stop pair');
+    }
+
+    return { fare: fare.amount };
+  }
+
+  // ─── Admin Methods ─────────────────────────────────────────────────────────
+
+  async create(dto: CreateRouteDto) {
+    this.validateStops(dto.stops);
+    if (dto.segments && dto.segments.length > 0) {
+      this.validateSegments(dto.segments);
+    }
+
+    const routeNumber = dto.routeNumber.toUpperCase();
+
+    return this.prisma.$transaction(async (tx) => {
+      const route = await tx.route.create({
+        data: {
+          routeNumber,
+          name: dto.name,
+          ...(dto.description !== undefined ? { description: dto.description } : {}),
+          ...(dto.estimatedDuration !== undefined && {
+            estimatedDuration: dto.estimatedDuration,
+          }),
+        },
+      });
+
+      await tx.stop.createMany({
+        data: dto.stops.map((s) => ({
+          routeId: route.id,
+          name: s.name,
+          sequence: s.sequence,
+          latitude: s.latitude,
+          longitude: s.longitude,
+        })),
+      });
+
+      const stops = await tx.stop.findMany({
+        where: { routeId: route.id },
+        orderBy: { sequence: 'asc' },
+      });
+
+      if (dto.fares.length > 0) {
+        await tx.fare.createMany({
+          data: dto.fares.map((f) => {
+            const fromStop = stops.find((s) => s.sequence === f.fromStopSequence);
+            const toStop = stops.find((s) => s.sequence === f.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in fare');
+            }
+            return { routeId: route.id, fromStopId: fromStop.id, toStopId: toStop.id, amount: f.amount };
+          }),
+        });
+      }
+
+      if (dto.segments && dto.segments.length > 0) {
+        await tx.routeSegment.createMany({
+          data: dto.segments.map((s) => {
+            const fromStop = stops.find((stop) => stop.sequence === s.fromStopSequence);
+            const toStop = stops.find((stop) => stop.sequence === s.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in segment');
+            }
+            return {
+              routeId: route.id,
+              fromStopId: fromStop.id,
+              toStopId: toStop.id,
+              distance: s.distance,
+              duration: s.duration,
+            };
+          }),
+        });
+      }
+
+      return tx.route.findUniqueOrThrow({
+        where: { id: route.id },
+        include: STOPS_AND_FARES_AND_SEGMENTS,
+      });
+    });
+  }
+
+  async update(id: string, dto: UpdateRouteDto) {
+    const existing = await this.assertExists(id);
+
+    const data: Prisma.RouteUpdateInput = {};
+    if (dto.name !== undefined) {
+      data.name = this.mergeLocalized(existing.name, dto.name);
+    }
+    if (dto.description !== undefined) {
+      data.description = this.mergeLocalized(existing.description, dto.description);
+    }
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.estimatedDuration !== undefined) data.estimatedDuration = dto.estimatedDuration;
+    if (dto.estimatedDistance !== undefined) data.estimatedDistance = dto.estimatedDistance;
+
+    return this.prisma.route.update({ where: { id }, data });
+  }
+
+  async updateStops(routeId: string, stops: StopDto[]) {
+    await this.assertExists(routeId);
+    this.validateStops(stops);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.fare.deleteMany({ where: { routeId } });
+      await tx.routeSegment.deleteMany({ where: { routeId } });
+      await tx.stop.deleteMany({ where: { routeId } });
+
+      await tx.stop.createMany({
+        data: stops.map((s) => ({
+          routeId,
+          name: s.name,
+          sequence: s.sequence,
+          latitude: s.latitude,
+          longitude: s.longitude,
+        })),
+      });
+
+      return tx.stop.findMany({ where: { routeId }, orderBy: { sequence: 'asc' } });
+    });
+  }
+
+  async updateFares(routeId: string, fares: FareDto[]) {
+    await this.assertExists(routeId);
+
+    const stops = await this.prisma.stop.findMany({
+      where: { routeId },
+      orderBy: { sequence: 'asc' },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.fare.deleteMany({ where: { routeId } });
+
+      if (fares.length > 0) {
+        await tx.fare.createMany({
+          data: fares.map((f) => {
+            const fromStop = stops.find((s) => s.sequence === f.fromStopSequence);
+            const toStop = stops.find((s) => s.sequence === f.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in fare');
+            }
+            return { routeId, fromStopId: fromStop.id, toStopId: toStop.id, amount: f.amount };
+          }),
+        });
+      }
+
+      return tx.fare.findMany({ where: { routeId } });
+    });
+  }
+
+  async updateSegments(routeId: string, segments: RouteSegmentDto[]) {
+    await this.assertExists(routeId);
+    this.validateSegments(segments);
+
+    const stops = await this.prisma.stop.findMany({
+      where: { routeId },
+      orderBy: { sequence: 'asc' },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.routeSegment.deleteMany({ where: { routeId } });
+
+      if (segments.length > 0) {
+        await tx.routeSegment.createMany({
+          data: segments.map((s) => {
+            const fromStop = stops.find((stop) => stop.sequence === s.fromStopSequence);
+            const toStop = stops.find((stop) => stop.sequence === s.toStopSequence);
+            if (!fromStop || !toStop) {
+              throw new UnprocessableEntityException('Invalid stop sequence in segment');
+            }
+            return {
+              routeId,
+              fromStopId: fromStop.id,
+              toStopId: toStop.id,
+              distance: s.distance,
+              duration: s.duration,
+            };
+          }),
+        });
+      }
+
+      return tx.routeSegment.findMany({
+        where: { routeId },
+        include: { fromStop: true, toStop: true },
+      });
+    });
+  }
+
+  async softDelete(id: string) {
+    await this.assertExists(id);
+    await this.prisma.route.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  transformRoute(route: RouteWithRelations, locale: Locale = DEFAULT_LOCALE): RouteResponseDto {
+    const sortedStops = [...route.stops].sort((a, b) => a.sequence - b.sequence);
+    const startStop = sortedStops[0];
+    const endStop = sortedStops[sortedStops.length - 1];
+
+    const fare =
+      route.fares.find((f) => f.fromStopId === startStop.id && f.toStopId === endStop.id)
+        ?.amount ?? 0;
+
+    const segByFromSeq = new Map<number, { distance: number; duration: number }>();
+    for (const seg of route.segments ?? []) {
+      if (seg.fromStop.sequence + 1 === seg.toStop.sequence) {
+        segByFromSeq.set(seg.fromStop.sequence, {
+          distance: seg.distance,
+          duration: seg.duration,
+        });
+      }
+    }
+
+    const stops: StopResponseDto[] = sortedStops.map((stop) => {
+      const toNext = segByFromSeq.get(stop.sequence) ?? null;
+      const fromPrev = segByFromSeq.get(stop.sequence - 1) ?? null;
+      return {
+        id: stop.id,
+        name: localize(stop.name, locale),
+        sequence: stop.sequence,
+        ...(stop.latitude != null && { latitude: stop.latitude }),
+        ...(stop.longitude != null && { longitude: stop.longitude }),
+        distanceFromPrevious: fromPrev?.distance ?? null,
+        distanceToNext: toNext?.distance ?? null,
+        durationFromPrevious: fromPrev?.duration ?? null,
+        durationToNext: toNext?.duration ?? null,
+      };
+    });
+
+    const segValues = [...segByFromSeq.values()];
+    const distance =
+      segValues.length > 0
+        ? segValues.reduce((sum, s) => sum + s.distance, 0)
+        : (route.estimatedDistance ?? 0);
+    const duration =
+      segValues.length > 0
+        ? segValues.reduce((sum, s) => sum + s.duration, 0)
+        : (route.estimatedDuration ?? 0);
+
+    const stopSeqById = new Map<string, number>(sortedStops.map((s) => [s.id, s.sequence]));
+    const fares: FareResponseDto[] = route.fares.map((f) => ({
+      fromStopId: f.fromStopId,
+      toStopId: f.toStopId,
+      fromStopSequence: stopSeqById.get(f.fromStopId) ?? 0,
+      toStopSequence: stopSeqById.get(f.toStopId) ?? 0,
+      amount: f.amount,
+    }));
+
+    return {
+      id: route.id,
+      routeNumber: route.routeNumber,
+      name: localize(route.name, locale),
+      description: localizeNullable(route.description, locale) ?? undefined,
+      isActive: route.isActive,
+      duration,
+      distance,
+      startStopName: localize(startStop.name, locale),
+      endStopName: localize(endStop.name, locale),
+      totalStops: sortedStops.length,
+      price: fare,
+      fares,
+      stops,
+      createdAt: route.createdAt,
+      updatedAt: route.updatedAt,
+    };
+  }
+
+  private matchesAnyLocale(name: Prisma.JsonValue, needle: string): boolean {
+    const lower = needle.toLowerCase();
+    for (const loc of SUPPORTED_LOCALES) {
+      const v = localize(name, loc).toLowerCase();
+      if (v.includes(lower)) return true;
+    }
+    return false;
+  }
+
+  private mergeLocalized(
+    existing: Prisma.JsonValue | null | undefined,
+    patch: Record<string, string | undefined>,
+  ): Prisma.InputJsonValue {
+    const base = (typeof existing === 'object' && existing !== null
+      ? (existing as Record<string, unknown>)
+      : {}) as Record<string, string>;
+    const merged: Record<string, string> = { ...base };
+    for (const key of Object.keys(patch)) {
+      const v = patch[key];
+      if (typeof v === 'string' && v.length > 0) merged[key] = v;
+    }
+    return merged as unknown as Prisma.InputJsonValue;
+  }
+
+  private validateSegments(segments: RouteSegmentDto[]) {
+    for (const seg of segments) {
+      if (seg.toStopSequence !== seg.fromStopSequence + 1) {
+        throw new UnprocessableEntityException(
+          `Segment ${seg.fromStopSequence}→${seg.toStopSequence} is not forward-consecutive. Each segment must connect adjacent stops in ascending order.`,
+        );
+      }
+    }
+  }
+
+  private validateStops(stops: StopDto[]) {
+    if (stops.length < 2) {
+      throw new UnprocessableEntityException('A route must have at least 2 stops');
+    }
+
+    const sequences = stops.map((s) => s.sequence).sort((a, b) => a - b);
+    for (let i = 0; i < sequences.length; i++) {
+      if (sequences[i] !== i + 1) {
+        throw new UnprocessableEntityException('Stop sequences must be contiguous starting from 1');
+      }
+    }
+  }
+
+  private async assertExists(id: string) {
+    const route = await this.prisma.route.findUnique({
+      where: { id },
+      select: { id: true, name: true, description: true, deletedAt: true },
+    });
+    if (!route || route.deletedAt) {
+      throw new NotFoundException('Route not found');
+    }
+    return route;
+  }
+
+  private normalizeSortBy(value?: string): string {
+    const allowed = new Set(['createdAt', 'updatedAt', 'name', 'routeNumber']);
+    if (!value || !allowed.has(value)) return 'createdAt';
+    return value;
+  }
+}

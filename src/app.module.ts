@@ -6,13 +6,22 @@ import { appConfig, validateEnv } from './common/config';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { LocaleInterceptor } from './common/interceptors/locale.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UsersModule } from './modules/users/users.module';
+import { RoutesModule } from './modules/routes/routes.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
+import { TripsModule } from './modules/trips/trips.module';
+import { SyncModule } from './modules/sync/sync.module';
+import { ValidationModule } from './modules/validation/validation.module';
 import { WalletModule } from './modules/wallet/wallet.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { JobsModule } from './jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -35,6 +44,14 @@ import { PrismaModule } from './prisma/prisma.module';
     NotificationsModule,
     UsersModule,
     WalletModule,
+    RoutesModule,
+    TicketsModule,
+    TripsModule,
+    ValidationModule,
+    SyncModule,
+    AdminModule,
+    AnalyticsModule,
+    JobsModule.register(),
   ],
   controllers: [],
   providers: [
@@ -43,6 +60,8 @@ import { PrismaModule } from './prisma/prisma.module';
     // Global auth guards — run in registration order
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Resolve request locale before downstream interceptors/controllers
+    { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },
     // Response shaping
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },

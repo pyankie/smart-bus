@@ -60,6 +60,7 @@ export class SmsProvider {
 
   private toSmsEthiopiaMsisdn(phone: string): string {
     const normalized = phone.trim();
+    if (normalized.startsWith('0')) return `251${normalized.slice(1)}`;
     if (normalized.startsWith('+')) return normalized.slice(1);
     return normalized;
   }

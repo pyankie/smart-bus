@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: smartbus
       POSTGRES_PASSWORD: smartbus_dev
@@ -8,12 +8,38 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
+      # - pgdata:/var/lib/postgresql/data   # use this if the Postgresql image version is under 18
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U smartbus -d smartbus']
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # ML subsystem (Python FastAPI + LightGBM + Isolation Forest).
+  # Lives in a sibling repo. To enable locally:
+  #   1. Clone ~/Dev/smartbus-ml-subsystem alongside this repo
+  #   2. Set ML_SERVICE_ENABLED=true in your .env
+  #   3. docker-compose --profile ml up -d
+  # On first boot, POST http://localhost:8000/api/v1/ml/train to generate models.
+  smartbus-ml:
+    profiles: ['ml']
+    build:
+      context: ../smartbus-ml-subsystem
+    container_name: smartbus-ml
+    ports:
+      - '8000:8000'
+    environment:
+      ENV: development
+      TRAINING_SAMPLE_SIZE: 2000
+      FRAUD_SAMPLE_SIZE: 5000
+      ANOMALY_CONTAMINATION: 0.05
+      # Shared secret — must match ML_SERVICE_TOKEN on the NestJS side
+      ML_INTERNAL_TOKEN: ${ML_SERVICE_TOKEN:-}
+    volumes:
+      - ../smartbus-ml-subsystem/data:/app/data
+      - ../smartbus-ml-subsystem/models:/app/models
+    restart: unless-stopped
 
 volumes:
   pgdata:

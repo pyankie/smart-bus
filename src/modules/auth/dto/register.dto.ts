@@ -11,10 +11,10 @@ import {
 
 export class RegisterDto {
   @IsString()
-  @Matches(/^\+251[0-9]{9}$/, {
-    message: 'Phone must be Ethiopian format +251XXXXXXXXX',
+  @Matches(/^0[79][0-9]{8}$/, {
+    message: 'Phone must be a valid Ethiopian mobile number (09XXXXXXXX for Ethiotelecom, 07XXXXXXXX for Safaricom)',
   })
-  @ApiProperty({ example: '+251912345678' })
+  @ApiProperty({ example: '0912345678' })
   phone!: string;
 
   @IsString()

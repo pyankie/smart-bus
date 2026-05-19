@@ -4,7 +4,7 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "generated/client"
 }
 
@@ -111,6 +111,9 @@ model User {
   // FCM device token — registered by mobile app after login, used for push notifications
   fcmToken String? @map("fcm_token")
 
+  // Preferred UI language (BCP-47 base code: "en" | "am"). Drives SMS / push localization.
+  preferredLocale String @default("en") @map("preferred_locale")
+
   lastLoginAt DateTime? @map("last_login_at")
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -202,7 +205,7 @@ model Wallet {
   userId String @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  balance Int @default(0) //never negative
+  balance Float @default(0) // ETB, never negative
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -219,14 +222,15 @@ model WalletTransaction {
 
   type         WalletTransactionType
   status       WalletTransactionStatus @default(PENDING)
-  amount       Int //always positive; sign implied by type
-  balanceAfter Int?                    @map("balance_after")
+  amount       Float // ETB, always positive; sign implied by type
+  balanceAfter Float?                  @map("balance_after")
 
   ticketId       String? @map("ticket_id")
   externalRef    String? @map("external_ref")
   idempotencyKey String? @unique @map("idempotency_key")
 
-  description String?
+  // Localized: { en: string, am: string }
+  description Json?
   metadata    Json?
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -243,21 +247,28 @@ model WalletTransaction {
 // =====================================================================
 
 model Route {
-  id          String  @id @default(uuid())
-  routeNumber String  @unique @map("route_number")
-  name        String
-  description String?
+  id          String @id @default(uuid())
+  routeNumber String @unique @map("route_number")
+  // Localized: { en: string, am: string }
+  name        Json
+  // Localized: { en: string, am: string }
+  description Json?
 
   isActive Boolean @default(true) @map("is_active")
+
+  estimatedDuration Int? @map("estimated_duration") // in minutes
+
+  estimatedDistance Int? @map("estimated_distance") // in meters
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  stops   Stop[]
-  fares   Fare[]
-  trips   Trip[]
-  tickets Ticket[]
+  stops    Stop[]
+  segments RouteSegment[]
+  fares    Fare[]
+  trips    Trip[]
+  tickets  Ticket[]
 
   @@index([isActive, deletedAt])
   @@map("routes")
@@ -268,7 +279,8 @@ model Stop {
   routeId String @map("route_id")
   route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
 
-  name      String
+  // Localized: { en: string, am: string }
+  name      Json
   sequence  Int // 1-based ordering along the route
   latitude  Float?
   longitude Float?
@@ -276,14 +288,39 @@ model Stop {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  faresFrom       Fare[]   @relation("FareFromStop")
-  faresTo         Fare[]   @relation("FareToStop")
-  ticketsBoarding Ticket[] @relation("TicketBoardingStop")
-  ticketsDropoff  Ticket[] @relation("TicketDropoffStop")
+  faresFrom       Fare[]         @relation("FareFromStop")
+  faresTo         Fare[]         @relation("FareToStop")
+  ticketsBoarding Ticket[]       @relation("TicketBoardingStop")
+  ticketsDropoff  Ticket[]       @relation("TicketDropoffStop")
+  segmentsFrom    RouteSegment[] @relation("SegmentFrom")
+  segmentsTo      RouteSegment[] @relation("SegmentTo")
 
   @@unique([routeId, sequence])
   @@index([routeId])
   @@map("stops")
+}
+
+model RouteSegment {
+  id      String @id @default(uuid())
+  routeId String @map("route_id")
+  route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  fromStopId String @map("from_stop_id")
+  fromStop   Stop   @relation("SegmentFrom", fields: [fromStopId], references: [id])
+  toStopId   String @map("to_stop_id")
+  toStop     Stop   @relation("SegmentTo", fields: [toStopId], references: [id])
+
+  distance Int @map("distance") // in meters
+  duration Int @map("duration") // in minutes
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([routeId, fromStopId, toStopId])
+  @@index([routeId])
+  @@index([fromStopId])
+  @@index([toStopId])
+  @@map("route_segments")
 }
 
 model Fare {
@@ -297,7 +334,7 @@ model Fare {
   toStopId String @map("to_stop_id")
   toStop   Stop   @relation("FareToStop", fields: [toStopId], references: [id])
 
-  amount Int
+  amount Float // ETB
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -325,7 +362,7 @@ model Ticket {
   dropoffStopId String @map("dropoff_stop_id")
   dropoffStop   Stop   @relation("TicketDropoffStop", fields: [dropoffStopId], references: [id])
 
-  fareAmount Int @map("fare_amount") // snapshot at purchase time
+  fareAmount Float @map("fare_amount") // ETB, snapshot at purchase time
 
   status TicketStatus @default(ACTIVE)
 
@@ -402,10 +439,47 @@ model ScanEvent {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  anomalyFlags AnomalyFlag[]
+
   @@index([ticketId, scannedAt])
   @@index([driverId, scannedAt])
   @@index([tripId])
   @@map("scan_events")
+}
+
+// =====================================================================
+// ANOMALY FLAGS (fraud / scan anomaly audits from ML subsystem)
+// =====================================================================
+
+enum AnomalySeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AnomalySource {
+  ML
+  RULE_FALLBACK
+}
+
+model AnomalyFlag {
+  id          String     @id @default(uuid())
+  scanEventId String?    @map("scan_event_id")
+  scanEvent   ScanEvent? @relation(fields: [scanEventId], references: [id], onDelete: SetNull)
+
+  source       AnomalySource
+  severity     AnomalySeverity
+  anomalyScore Float           @map("anomaly_score")
+  reasons      Json
+
+  reviewedBy String?   @map("reviewed_by")
+  reviewedAt DateTime? @map("reviewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([severity, createdAt])
+  @@index([scanEventId])
+  @@map("anomaly_flags")
 }
 
 // =====================================================================

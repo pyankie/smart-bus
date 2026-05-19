@@ -20,6 +20,8 @@ import {
 import { hash as argonHash, verify as argonVerify } from 'argon2';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DEFAULT_LOCALE, Locale, resolveLocale } from '../../common/utils/localized-string';
+import { MessageTemplates, renderTemplate } from '../../common/utils/message-templates';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -77,7 +79,7 @@ export class AuthService {
     if (existing && existing.status === UserStatus.PENDING_VERIFICATION && !existing.deletedAt) {
       await this.assertNoOtpCooldown(dto.phone, OtpPurpose.REGISTRATION);
       const code = await this.createOtp(dto.phone, OtpPurpose.REGISTRATION, existing.id);
-      await this.sendOtpSms(dto.phone, code);
+      await this.sendOtpSms(dto.phone, code, await this.resolveUserLocale(existing.id));
       return { message: 'OTP sent' };
     }
 
@@ -93,7 +95,7 @@ export class AuthService {
     });
 
     const code = await this.createOtp(dto.phone, OtpPurpose.REGISTRATION, created.id);
-    await this.sendOtpSms(dto.phone, code);
+    await this.sendOtpSms(dto.phone, code, await this.resolveUserLocale(created.id));
 
     return { message: 'OTP sent' };
   }
@@ -246,7 +248,7 @@ export class AuthService {
 
     await this.assertNoOtpCooldown(dto.phone, OtpPurpose.PASSWORD_RESET);
     const code = await this.createOtp(dto.phone, OtpPurpose.PASSWORD_RESET, user.id);
-    await this.sendOtpSms(dto.phone, code);
+    await this.sendOtpSms(dto.phone, code, await this.resolveUserLocale(user.id));
 
     return { message: 'OTP sent' };
   }
@@ -290,8 +292,18 @@ export class AuthService {
     return code;
   }
 
-  private async sendOtpSms(phone: string, code: string): Promise<void> {
-    await this.notifications.sendSms(phone, `Your SmartBus verification code is ${code}`);
+  private async sendOtpSms(phone: string, code: string, locale: Locale = DEFAULT_LOCALE): Promise<void> {
+    const message = renderTemplate(MessageTemplates.OTP_CODE, locale, code);
+    await this.notifications.sendSms(phone, message);
+  }
+
+  private async resolveUserLocale(userId: string | null | undefined): Promise<Locale> {
+    if (!userId) return DEFAULT_LOCALE;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferredLocale: true },
+    });
+    return resolveLocale(user?.preferredLocale);
   }
 
   private async consumeOtp(phone: string, code: string, purpose: OtpPurpose): Promise<void> {

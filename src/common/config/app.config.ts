@@ -12,8 +12,8 @@ export default registerAs('app', () => ({
   otpResendSeconds: parseInt(process.env.OTP_RESEND_SECONDS ?? '60', 10),
   authClockSkewSeconds: parseInt(process.env.AUTH_CLOCK_SKEW_SECONDS ?? '30', 10),
   wallet: {
-    minTopupAmount: parseInt(process.env.MIN_TOPUP_AMOUNT ?? '1000', 10),
-    maxTopupAmount: parseInt(process.env.MAX_TOPUP_AMOUNT ?? '1000000', 10),
+    minTopupAmount: parseFloat(process.env.MIN_TOPUP_AMOUNT ?? '10'),
+    maxTopupAmount: parseFloat(process.env.MAX_TOPUP_AMOUNT ?? '10000'),
   },
   chapa: {
     baseUrl: process.env.CHAPA_BASE_URL ?? 'https://api.chapa.co/v1',
@@ -27,5 +27,12 @@ export default registerAs('app', () => ({
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  },
+  ml: {
+    serviceUrl: process.env.ML_SERVICE_URL ?? 'http://localhost:8000',
+    routeTimeoutMs: parseInt(process.env.ML_SERVICE_ROUTE_TIMEOUT_MS ?? '3000', 10),
+    anomalyTimeoutMs: parseInt(process.env.ML_SERVICE_ANOMALY_TIMEOUT_MS ?? '1500', 10),
+    enabled: process.env.ML_SERVICE_ENABLED === 'true',
+    token: process.env.ML_SERVICE_TOKEN,
   },
 }));
