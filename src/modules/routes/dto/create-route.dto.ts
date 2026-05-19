@@ -9,6 +9,8 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { IsLocalizedString } from '../../../common/decorators/is-localized-string.decorator';
+import type { LocalizedString } from '../../../common/utils/localized-string';
 import { FareDto } from './fare.dto';
 import { StopDto } from './stop.dto';
 import { RouteSegmentDto } from './route-segment.dto';
@@ -18,14 +20,20 @@ export class CreateRouteDto {
   @ApiProperty({ description: 'Unique route number, normalized to uppercase' })
   routeNumber!: string;
 
-  @IsString()
-  @ApiProperty()
-  name!: string;
+  @IsLocalizedString()
+  @ApiProperty({
+    description: 'Localized route name',
+    example: { en: 'Megenagna – Bole', am: 'መገናኛ – ቦሌ' },
+  })
+  name!: LocalizedString;
 
   @IsOptional()
-  @IsString()
-  @ApiPropertyOptional()
-  description?: string;
+  @IsLocalizedString()
+  @ApiPropertyOptional({
+    description: 'Localized route description',
+    example: { en: 'Express via Ring Road', am: 'በሪንግ ሮድ ፈጣን' },
+  })
+  description?: LocalizedString;
 
   @IsOptional()
   @IsInt()

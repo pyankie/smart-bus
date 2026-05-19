@@ -1,16 +1,18 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
+import { IsPartialLocalizedString } from '../../../common/decorators/is-localized-string.decorator';
+import type { PartialLocalizedString } from '../../../common/utils/localized-string';
 
 export class UpdateRouteDto {
   @IsOptional()
-  @IsString()
-  @ApiPropertyOptional()
-  name?: string;
+  @IsPartialLocalizedString()
+  @ApiPropertyOptional({ example: { en: 'Megenagna – Bole', am: 'መገናኛ – ቦሌ' } })
+  name?: PartialLocalizedString;
 
   @IsOptional()
-  @IsString()
-  @ApiPropertyOptional()
-  description?: string;
+  @IsPartialLocalizedString()
+  @ApiPropertyOptional({ example: { en: 'Express via Ring Road', am: 'በሪንግ ሮድ ፈጣን' } })
+  description?: PartialLocalizedString;
 
   @IsOptional()
   @IsBoolean()
