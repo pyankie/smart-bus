@@ -5,6 +5,8 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentLocale } from '../../common/decorators/current-locale.decorator';
+import type { Locale } from '../../common/utils/localized-string';
 import { FareLookupDto } from './dto/fare-lookup.dto';
 import { RouteQueryDto } from './dto/route-query.dto';
 import { RouteSearchDto } from './dto/route-search.dto';
@@ -25,8 +27,8 @@ export class RoutesController {
     type: RouteResponseDto,
     isArray: false,
   })
-  findAll(@Query() query: RouteQueryDto) {
-    return this.routes.findAll(query);
+  findAll(@Query() query: RouteQueryDto, @CurrentLocale() locale: Locale) {
+    return this.routes.findAll(query, locale);
   }
 
   @Get('search')
@@ -37,8 +39,8 @@ export class RoutesController {
     type: RouteResponseDto,
     isArray: false,
   })
-  search(@Query() query: RouteSearchDto) {
-    return this.routes.search(query);
+  search(@Query() query: RouteSearchDto, @CurrentLocale() locale: Locale) {
+    return this.routes.search(query, locale);
   }
 
   @Get(':id')
@@ -49,8 +51,8 @@ export class RoutesController {
     type: RouteResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Route not found' })
-  findById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.routes.findById(id);
+  findById(@Param('id', ParseUUIDPipe) id: string, @CurrentLocale() locale: Locale) {
+    return this.routes.findById(id, locale);
   }
 
   @Get(':id/fare')
