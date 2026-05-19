@@ -135,7 +135,7 @@ export class AnalyticsService {
         SELECT
           t.route_id      AS "routeId",
           r.route_number  AS "routeNumber",
-          r.name          AS "routeName",
+          r.name->>'en'  AS "routeName",
           SUM(t.fare_amount)::bigint AS revenue
         FROM tickets t
         JOIN routes r ON t.route_id = r.id
@@ -143,7 +143,7 @@ export class AnalyticsService {
           AND t.purchased_at >= ${from}
           AND t.purchased_at <= ${to}
           ${query.routeId ? Prisma.sql`AND t.route_id = ${query.routeId}::uuid` : Prisma.empty}
-        GROUP BY t.route_id, r.route_number, r.name
+        GROUP BY t.route_id, r.route_number, r.name->>'en'
         ORDER BY revenue DESC
       `,
       this.prisma.$queryRaw<RawRevenueByDay[]>`
@@ -195,14 +195,14 @@ export class AnalyticsService {
         SELECT
           t.route_id      AS "routeId",
           r.route_number  AS "routeNumber",
-          r.name          AS "routeName",
+          r.name->>'en'  AS "routeName",
           COUNT(t.id)::bigint AS count
         FROM tickets t
         JOIN routes r ON t.route_id = r.id
         WHERE t.purchased_at >= ${from}
           AND t.purchased_at <= ${to}
           ${query.routeId ? Prisma.sql`AND t.route_id = ${query.routeId}::uuid` : Prisma.empty}
-        GROUP BY t.route_id, r.route_number, r.name
+        GROUP BY t.route_id, r.route_number, r.name->>'en'
         ORDER BY count DESC
       `,
       this.prisma.ticket.aggregate({
@@ -245,7 +245,7 @@ export class AnalyticsService {
         SELECT
           t.route_id      AS "routeId",
           r.route_number  AS "routeNumber",
-          r.name          AS "routeName",
+          r.name->>'en'  AS "routeName",
           COUNT(t.id)::bigint AS count
         FROM trips t
         JOIN routes r ON t.route_id = r.id
@@ -253,7 +253,7 @@ export class AnalyticsService {
           AND t.scheduled_for <= ${to}
           ${query.routeId ? Prisma.sql`AND t.route_id = ${query.routeId}::uuid` : Prisma.empty}
           ${query.driverId ? Prisma.sql`AND t.driver_id = ${query.driverId}::uuid` : Prisma.empty}
-        GROUP BY t.route_id, r.route_number, r.name
+        GROUP BY t.route_id, r.route_number, r.name->>'en'
         ORDER BY count DESC
       `,
       this.prisma.$queryRaw<{ driverId: string; driverName: string; count: bigint }[]>`
@@ -493,7 +493,7 @@ export class AnalyticsService {
             DATE(t.purchased_at)::text   AS date,
             t.route_id                   AS "routeId",
             r.route_number               AS "routeNumber",
-            r.name                       AS "routeName",
+            r.name->>'en'                 AS "routeName",
             SUM(t.fare_amount)::bigint   AS revenue
           FROM tickets t
           JOIN routes r ON t.route_id = r.id
@@ -501,7 +501,7 @@ export class AnalyticsService {
             AND t.purchased_at >= ${from}
             AND t.purchased_at <= ${to}
             ${routeId ? Prisma.sql`AND t.route_id = ${routeId}::uuid` : Prisma.empty}
-          GROUP BY DATE(t.purchased_at), t.route_id, r.route_number, r.name
+          GROUP BY DATE(t.purchased_at), t.route_id, r.route_number, r.name->>'en'
           ORDER BY date DESC, revenue DESC
           LIMIT ${MAX_ROWS}
         `;
