@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ValidateTicketDto {
   @IsString()
@@ -16,4 +16,10 @@ export class ValidateTicketDto {
   @IsBoolean()
   @ApiPropertyOptional({ description: 'If true, scan without marking ticket as used', default: false })
   inspectionMode?: boolean;
+
+  // Optional context used by the ML anomaly audit. Drivers can omit; the audit
+  // then runs against the boarding stop's recorded coordinates only.
+  @IsOptional() @IsNumber() @ApiPropertyOptional() latitude?: number;
+  @IsOptional() @IsNumber() @ApiPropertyOptional() longitude?: number;
+  @IsOptional() @IsString() @ApiPropertyOptional() deviceId?: string;
 }
