@@ -10,6 +10,8 @@ import { ScanResult, TicketStatus, TripStatus, UserRole, UserStatus } from '@pri
 import { hash } from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import { resolveLocale } from '../../common/utils/localized-string';
+import { MessageTemplates, renderTemplate } from '../../common/utils/message-templates';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RoutesService } from '../routes/routes.service';
 import { CreateRouteDto } from '../routes/dto/create-route.dto';
@@ -326,17 +328,27 @@ export class AdminService {
 
     // 5. Notify driver — non-fatal; failures are logged but do not roll back the trip
     const route = trip.route as { routeNumber: string };
-    const formattedDate = scheduledDate.toLocaleDateString('en-ET', { dateStyle: 'medium' });
-    const message = `You have been assigned to route ${route.routeNumber} on ${formattedDate}`;
+    const driverLocale = resolveLocale(driver.preferredLocale);
+    const formattedDate = scheduledDate.toLocaleDateString(
+      driverLocale === 'am' ? 'am-ET' : 'en-ET',
+      { dateStyle: 'medium' },
+    );
+    const title = renderTemplate(MessageTemplates.TRIP_ASSIGNMENT_TITLE, driverLocale);
+    const body = renderTemplate(
+      MessageTemplates.TRIP_ASSIGNMENT_BODY,
+      driverLocale,
+      route.routeNumber,
+      formattedDate,
+    );
 
     try {
-      await this.notificationsService.sendPush(dto.driverId, 'New Assignment', message);
+      await this.notificationsService.sendPush(dto.driverId, title, body);
     } catch {
       this.logger.warn(`Push failed for trip assignment: driverId=${dto.driverId}, tripId=${trip.id}`);
     }
 
     try {
-      await this.notificationsService.sendSms(driver.phone, `SmartBus: ${message}`);
+      await this.notificationsService.sendSms(driver.phone, `SmartBus: ${body}`);
     } catch {
       this.logger.warn(`SMS failed for trip assignment: driverId=${dto.driverId}, tripId=${trip.id}`);
     }
