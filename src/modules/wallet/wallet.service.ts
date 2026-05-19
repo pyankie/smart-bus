@@ -15,6 +15,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import {
+  DEFAULT_LOCALE,
+  Locale,
+  localizeNullable,
+  type LocalizedString,
+} from '../../common/utils/localized-string';
+import {
+  MessageTemplates,
+  renderAllLocales,
+} from '../../common/utils/message-templates';
 import { TopupDto } from './dto/topup.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { PaymentProvider } from './providers/payment.provider';
@@ -84,7 +94,7 @@ export class WalletService {
         amount: dto.amount,
         externalRef: provider.externalRef,
         idempotencyKey,
-        description: 'Wallet top-up initiated',
+        description: renderAllLocales(MessageTemplates.TOPUP_INITIATED_DESCRIPTION),
       },
     });
 
@@ -98,7 +108,11 @@ export class WalletService {
     };
   }
 
-  async getTransactions(userId: string, query: TransactionQueryDto) {
+  async getTransactions(
+    userId: string,
+    query: TransactionQueryDto,
+    locale: Locale = DEFAULT_LOCALE,
+  ) {
     const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new NotFoundException('Wallet not found');
 
@@ -129,7 +143,7 @@ export class WalletService {
     ]);
 
     return {
-      items,
+      items: items.map((t) => ({ ...t, description: localizeNullable(t.description, locale) })),
       meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
     };
   }
@@ -169,7 +183,7 @@ export class WalletService {
     userId: string,
     amount: number,
     ticketId: string,
-    description: string,
+    description: LocalizedString,
   ): Promise<WalletTransaction> {
     const wallet = await tx.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new NotFoundException('Wallet not found');
@@ -229,7 +243,7 @@ export class WalletService {
           data: {
             status: WalletTransactionStatus.COMPLETED,
             balanceAfter: newBalance,
-            description: txn.description ?? 'Wallet top-up completed',
+            description: renderAllLocales(MessageTemplates.TOPUP_COMPLETED_DESCRIPTION),
           },
         });
       });
@@ -240,7 +254,7 @@ export class WalletService {
       where: { id: txn.id },
       data: {
         status: WalletTransactionStatus.FAILED,
-        description: txn.description ?? 'Wallet top-up failed',
+        description: renderAllLocales(MessageTemplates.TOPUP_FAILED_DESCRIPTION),
       },
     });
   }
