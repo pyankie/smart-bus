@@ -18,11 +18,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma-generated/client';
+import { CurrentLocale } from '../../common/decorators/current-locale.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { IdempotencyGuard } from '../../common/guards/idempotency.guard';
 import { IdempotencyInterceptor } from '../../common/interceptors/idempotency.interceptor';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import type { Locale } from '../../common/utils/localized-string';
 import { PurchaseTicketDto } from './dto/purchase-ticket.dto';
 import { TicketQueryDto } from './dto/ticket-query.dto';
 import { TicketsService } from './tickets.service';
@@ -47,15 +49,20 @@ export class TicketsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: PurchaseTicketDto,
     @Headers('idempotency-key') idempotencyKey: string,
+    @CurrentLocale() locale: Locale,
   ) {
-    return this.tickets.purchase(user.sub, dto, idempotencyKey);
+    return this.tickets.purchase(user.sub, dto, idempotencyKey, locale);
   }
 
   @Get()
   @ApiOperation({ summary: 'List own tickets with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Paginated ticket list' })
-  findAll(@CurrentUser() user: JwtPayload, @Query() query: TicketQueryDto) {
-    return this.tickets.findAllForUser(user.sub, query);
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: TicketQueryDto,
+    @CurrentLocale() locale: Locale,
+  ) {
+    return this.tickets.findAllForUser(user.sub, query, locale);
   }
 
   @Get(':id')
@@ -65,7 +72,8 @@ export class TicketsController {
   findOne(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentLocale() locale: Locale,
   ) {
-    return this.tickets.findOneForUser(user.sub, id);
+    return this.tickets.findOneForUser(user.sub, id, locale);
   }
 }

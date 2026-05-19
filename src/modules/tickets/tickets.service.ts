@@ -7,6 +7,15 @@ import { TicketStatus } from '@prisma-generated/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
+import {
+  DEFAULT_LOCALE,
+  Locale,
+  localize,
+} from '../../common/utils/localized-string';
+import {
+  MessageTemplates,
+  renderAllLocales,
+} from '../../common/utils/message-templates';
 import { WalletService } from '../wallet/wallet.service';
 import { RoutesService } from '../routes/routes.service';
 import { QrService } from './qr.service';
@@ -30,7 +39,12 @@ export class TicketsService {
     private qrService: QrService,
   ) {}
 
-  async purchase(userId: string, dto: PurchaseTicketDto, idempotencyKey: string) {
+  async purchase(
+    userId: string,
+    dto: PurchaseTicketDto,
+    idempotencyKey: string,
+    locale: Locale = DEFAULT_LOCALE,
+  ) {
     const { fare } = await this.routesService.getFare(
       dto.routeId,
       dto.boardingStopId,
@@ -71,15 +85,16 @@ export class TicketsService {
         issuedAt: purchasedAt.toISOString(),
       });
 
-      return tx.ticket.update({
+      const updated = await tx.ticket.update({
         where: { id: ticket.id },
         data: { qrPayload: payload, qrSignature: signature },
         include: TICKET_INCLUDE,
       });
+      return this.localizeTicket(updated, locale);
     });
   }
 
-  async findAllForUser(userId: string, query: TicketQueryDto) {
+  async findAllForUser(userId: string, query: TicketQueryDto, locale: Locale = DEFAULT_LOCALE) {
     const sortBy = this.normalizeSortBy(query.sortBy);
     const pagination = buildPagination({ ...query, sortBy });
 
@@ -109,12 +124,12 @@ export class TicketsService {
     ]);
 
     return {
-      items,
+      items: items.map((t) => this.localizeTicket(t, locale)),
       meta: buildPaginationMeta(query.page ?? 1, query.limit ?? 20, total),
     };
   }
 
-  async findOneForUser(userId: string, ticketId: string) {
+  async findOneForUser(userId: string, ticketId: string, locale: Locale = DEFAULT_LOCALE) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
       include: {
@@ -128,7 +143,20 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    return ticket;
+    return this.localizeTicket(ticket, locale);
+  }
+
+  private localizeTicket<T extends {
+    route: { name: unknown } & Record<string, unknown>;
+    boardingStop: { name: unknown } & Record<string, unknown>;
+    dropoffStop: { name: unknown } & Record<string, unknown>;
+  }>(ticket: T, locale: Locale) {
+    return {
+      ...ticket,
+      route: { ...ticket.route, name: localize(ticket.route.name, locale) },
+      boardingStop: { ...ticket.boardingStop, name: localize(ticket.boardingStop.name, locale) },
+      dropoffStop: { ...ticket.dropoffStop, name: localize(ticket.dropoffStop.name, locale) },
+    };
   }
 
   // ─── Internal ─────────────────────────────────────────────────────────────
@@ -169,7 +197,7 @@ export class TicketsService {
         ticket.passengerId,
         ticket.fareAmount,
         ticketId,
-        'Ticket expired – refund issued',
+        renderAllLocales(MessageTemplates.TICKET_REFUND_DESCRIPTION),
       );
 
       return tx.ticket.update({
