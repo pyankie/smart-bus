@@ -64,44 +64,53 @@ function buildFares(routeId: string, stops: { id: string; sequence: number }[]) 
 const ROUTES = [
   {
     routeNumber: 'R01',
-    name: 'Megenagna ↔ 4 Kilo',
-    description: 'Main route connecting Megenagna to 4 Kilo via Bole',
+    name: { en: 'Megenagna ↔ 4 Kilo', am: 'መገናኛ ↔ አራት ኪሎ' },
+    description: {
+      en: 'Main route connecting Megenagna to 4 Kilo via Bole',
+      am: 'መገናኛን ከአራት ኪሎ በቦሌ በኩል የሚያገናኝ ዋና መስመር',
+    },
     estimatedDuration: 45,
     estimatedDistance: 15000,
     stops: [
-      { name: 'Megenagna',   latitude: 9.0190, longitude: 38.7897, distanceFromPrevious: 0,    durationFromPrevious: 0  },
-      { name: 'Bambis',      latitude: 9.0130, longitude: 38.7750, distanceFromPrevious: 3000, durationFromPrevious: 10 },
-      { name: 'Bole Michael',latitude: 9.0019, longitude: 38.7756, distanceFromPrevious: 4000, durationFromPrevious: 12 },
-      { name: 'Mexico',      latitude: 9.0138, longitude: 38.7614, distanceFromPrevious: 3500, durationFromPrevious: 11 },
-      { name: '4 Kilo',      latitude: 9.0228, longitude: 38.7613, distanceFromPrevious: 4500, durationFromPrevious: 12 },
+      { name: { en: 'Megenagna',    am: 'መገናኛ' },      latitude: 9.0190, longitude: 38.7897, distanceFromPrevious: 0,    durationFromPrevious: 0  },
+      { name: { en: 'Bambis',       am: 'ባምቢስ' },     latitude: 9.0130, longitude: 38.7750, distanceFromPrevious: 3000, durationFromPrevious: 10 },
+      { name: { en: 'Bole Michael', am: 'ቦሌ ሚካኤል' }, latitude: 9.0019, longitude: 38.7756, distanceFromPrevious: 4000, durationFromPrevious: 12 },
+      { name: { en: 'Mexico',       am: 'ሜክሲኮ' },     latitude: 9.0138, longitude: 38.7614, distanceFromPrevious: 3500, durationFromPrevious: 11 },
+      { name: { en: '4 Kilo',       am: 'አራት ኪሎ' },  latitude: 9.0228, longitude: 38.7613, distanceFromPrevious: 4500, durationFromPrevious: 12 },
     ],
   },
   {
     routeNumber: 'R02',
-    name: 'Mexico ↔ Piazza',
-    description: 'Central route from Mexico to Piazza via Merkato',
+    name: { en: 'Mexico ↔ Piazza', am: 'ሜክሲኮ ↔ ፒያሳ' },
+    description: {
+      en: 'Central route from Mexico to Piazza via Merkato',
+      am: 'ከሜክሲኮ ወደ ፒያሳ በመርካቶ በኩል የሚያደርስ ማእከላዊ መስመር',
+    },
     estimatedDuration: 30,
     estimatedDistance: 10000,
     stops: [
-      { name: 'Mexico',     latitude: 9.0138, longitude: 38.7614, distanceFromPrevious: 0,    durationFromPrevious: 0 },
-      { name: 'Afincho Ber',latitude: 9.0160, longitude: 38.7517, distanceFromPrevious: 2000, durationFromPrevious: 6 },
-      { name: 'Lideta',     latitude: 9.0175, longitude: 38.7448, distanceFromPrevious: 2500, durationFromPrevious: 7 },
-      { name: 'Merkato',    latitude: 9.0185, longitude: 38.7356, distanceFromPrevious: 3000, durationFromPrevious: 9 },
-      { name: 'Piazza',     latitude: 9.0308, longitude: 38.7404, distanceFromPrevious: 2500, durationFromPrevious: 8 },
+      { name: { en: 'Mexico',      am: 'ሜክሲኮ' },     latitude: 9.0138, longitude: 38.7614, distanceFromPrevious: 0,    durationFromPrevious: 0 },
+      { name: { en: 'Afincho Ber', am: 'አፍንጮ በር' }, latitude: 9.0160, longitude: 38.7517, distanceFromPrevious: 2000, durationFromPrevious: 6 },
+      { name: { en: 'Lideta',      am: 'ልደታ' },     latitude: 9.0175, longitude: 38.7448, distanceFromPrevious: 2500, durationFromPrevious: 7 },
+      { name: { en: 'Merkato',     am: 'መርካቶ' },    latitude: 9.0185, longitude: 38.7356, distanceFromPrevious: 3000, durationFromPrevious: 9 },
+      { name: { en: 'Piazza',      am: 'ፒያሳ' },     latitude: 9.0308, longitude: 38.7404, distanceFromPrevious: 2500, durationFromPrevious: 8 },
     ],
   },
   {
     routeNumber: 'R03',
-    name: 'CMC ↔ Gerji',
-    description: 'Northern route connecting CMC to Gerji',
+    name: { en: 'CMC ↔ Gerji', am: 'ሲኤምሲ ↔ ገርጂ' },
+    description: {
+      en: 'Northern route connecting CMC to Gerji',
+      am: 'ሲኤምሲን ከገርጂ የሚያገናኝ የሰሜን መስመር',
+    },
     estimatedDuration: 40,
     estimatedDistance: 12000,
     stops: [
-      { name: 'CMC',               latitude: 9.0420, longitude: 38.8109, distanceFromPrevious: 0,    durationFromPrevious: 0  },
-      { name: 'Megenagna',         latitude: 9.0190, longitude: 38.7897, distanceFromPrevious: 4500, durationFromPrevious: 15 },
-      { name: 'Summit',            latitude: 9.0130, longitude: 38.8003, distanceFromPrevious: 3500, durationFromPrevious: 12 },
-      { name: 'Gerji Mebrat Hail', latitude: 9.0116, longitude: 38.8092, distanceFromPrevious: 2000, durationFromPrevious: 7  },
-      { name: 'Gerji',             latitude: 9.0091, longitude: 38.8110, distanceFromPrevious: 2000, durationFromPrevious: 6  },
+      { name: { en: 'CMC',               am: 'ሲኤምሲ' },          latitude: 9.0420, longitude: 38.8109, distanceFromPrevious: 0,    durationFromPrevious: 0  },
+      { name: { en: 'Megenagna',         am: 'መገናኛ' },          latitude: 9.0190, longitude: 38.7897, distanceFromPrevious: 4500, durationFromPrevious: 15 },
+      { name: { en: 'Summit',            am: 'ሰሚት' },            latitude: 9.0130, longitude: 38.8003, distanceFromPrevious: 3500, durationFromPrevious: 12 },
+      { name: { en: 'Gerji Mebrat Hail', am: 'ገርጂ መብራት ኃይል' }, latitude: 9.0116, longitude: 38.8092, distanceFromPrevious: 2000, durationFromPrevious: 7  },
+      { name: { en: 'Gerji',             am: 'ገርጂ' },            latitude: 9.0091, longitude: 38.8110, distanceFromPrevious: 2000, durationFromPrevious: 6  },
     ],
   },
 ];
@@ -408,7 +417,7 @@ async function main(): Promise<void> {
         amount: passenger.wallet.balance,
         balanceAfter: passenger.wallet.balance,
         externalRef: `TOPUP-${passenger.id.substring(0, 8)}`,
-        description: 'Initial wallet top-up',
+        description: { en: 'Initial wallet top-up', am: 'የመጀመሪያ የዋሌት ምሙላት' },
       },
     });
     txCount++;
@@ -682,8 +691,10 @@ async function main(): Promise<void> {
 
   console.log('\n🗺️  ROUTES:');
   routes.forEach((route) => {
-    console.log(`   • ${route.routeNumber}: ${route.name}`);
-    console.log(`     Stops: ${route.stops.map((s) => s.name).join(' → ')}`);
+    const name = (route.name as { en: string }).en;
+    console.log(`   • ${route.routeNumber}: ${name}`);
+    const stops = route.stops.map((s) => (s.name as { en: string }).en).join(' → ');
+    console.log(`     Stops: ${stops}`);
   });
 
   console.log('\n🚌  TRIPS:');
