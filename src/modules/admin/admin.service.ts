@@ -12,6 +12,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { buildPagination, buildPaginationMeta } from '../../common/utils/pagination.util';
 import { resolveLocale } from '../../common/utils/localized-string';
 import { MessageTemplates, renderTemplate } from '../../common/utils/message-templates';
+import { MlService } from '../ml/ml.service';
+import type { RouteAssignmentResponseDto } from '../ml/dto/route-assignment.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RoutesService } from '../routes/routes.service';
 import { CreateRouteDto } from '../routes/dto/create-route.dto';
@@ -40,7 +42,51 @@ export class AdminService {
     private routesService: RoutesService,
     private tripsService: TripsService,
     private notificationsService: NotificationsService,
+    private mlService: MlService,
   ) {}
+
+  // ─── Driver Assignment Suggestions (UC0012 step 5/9) ─────────────────────
+
+  async suggestDriverAssignments(
+    routeId: string,
+    scheduledFor: string,
+  ): Promise<RouteAssignmentResponseDto> {
+    // Eligible drivers: ACTIVE role=DRIVER, no scheduled/in-progress trip on the same day
+    const scheduledDate = new Date(scheduledFor);
+    const dayStart = new Date(scheduledDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(scheduledDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const busyDrivers = await this.prisma.trip.findMany({
+      where: {
+        scheduledFor: { gte: dayStart, lte: dayEnd },
+        status: { not: TripStatus.CANCELLED },
+      },
+      select: { driverId: true },
+    });
+    const busy = new Set(busyDrivers.map((t) => t.driverId));
+
+    const eligible = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.DRIVER,
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        ...(busy.size > 0 ? { id: { notIn: [...busy] } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (eligible.length === 0) {
+      return { routeId, suggestions: [], source: 'fallback' };
+    }
+
+    return this.mlService.getRouteAssignmentSuggestions({
+      routeId,
+      scheduledFor,
+      candidateDriverIds: eligible.map((d) => d.id),
+    });
+  }
 
   // ─── User Management ───────────────────────────────────────────────────────
 
