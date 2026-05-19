@@ -33,6 +33,7 @@ import { AdminCreateUserDto } from './dto/admin-create-user.dto';
 import { AdminTripQueryDto } from './dto/admin-trip-query.dto';
 import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
 import { AdminUserQueryDto } from './dto/admin-user-query.dto';
+import { SuggestAssignmentDto } from './dto/suggest-assignment.dto';
 import { UpdateFaresDto } from './dto/update-fares.dto';
 import { UpdateStopsDto } from './dto/update-stops.dto';
 
@@ -204,6 +205,18 @@ export class AdminController {
     @Body() dto: CreateTripDto,
   ) {
     return this.admin.createTrip(actorId, dto, this.extractIp(req));
+  }
+
+  @Post('assignments/suggest')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Suggest ranked driver assignments for a route (UC0012)',
+    description:
+      'Returns ML-ranked candidate drivers with confidence + reasons. Falls back to a Prisma heuristic when the ML service is disabled or unreachable.',
+  })
+  @ApiResponse({ status: 200 })
+  suggestAssignments(@Body() dto: SuggestAssignmentDto) {
+    return this.admin.suggestDriverAssignments(dto.routeId, dto.scheduledFor);
   }
 
   @Patch('trips/:id/cancel')
