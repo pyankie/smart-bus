@@ -301,7 +301,7 @@ export class ValidationService {
 
     const [items, total] = await Promise.all([
       this.prisma.scanEvent.findMany({
-        where: { tripId },
+        where: { tripId, isInspection: false },
         skip: pagination.skip,
         take: pagination.take,
         orderBy: pagination.orderBy,
@@ -320,12 +320,12 @@ export class ValidationService {
           },
         },
       }),
-      this.prisma.scanEvent.count({ where: { tripId } }),
+      this.prisma.scanEvent.count({ where: { tripId, isInspection: false } }),
     ]);
 
     // Build a set of passengerIds seen before each item (ordered by scannedAt)
     const allPassengerScans = await this.prisma.scanEvent.findMany({
-      where: { tripId },
+      where: { tripId, isInspection: false },
       orderBy: { scannedAt: 'asc' },
       select: { id: true, ticket: { select: { passengerId: true } } },
     });
