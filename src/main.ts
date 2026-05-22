@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import express from 'express';
@@ -7,7 +7,7 @@ import { AppModule } from './app.module';
 import { setupSwagger } from './common/config';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   const port = config.get<number>('app.port') ?? 3000;
   const corsOrigins = config.get<string[]>('app.corsOrigins') ?? ['*'];
@@ -21,7 +21,7 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: corsOrigins.includes('*') ? '*' : corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'Accept-Language'],
     credentials: !corsOrigins.includes('*'),
   });
 
@@ -41,7 +41,12 @@ async function bootstrap(): Promise<void> {
     setupSwagger(app);
   }
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
+
+  Logger.log(`Server running on port ${port}`);
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  Logger.error('Failed to start server', error instanceof Error ? error.stack : String(error));
+  process.exitCode = 1;
+});

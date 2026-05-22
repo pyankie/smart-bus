@@ -22,7 +22,9 @@
       "@common/*": ["src/common/*"],
       "@modules/*": ["src/modules/*"],
       "@prisma-lib/*": ["src/prisma/*"],
-      "@jobs/*": ["src/jobs/*"]
+      "@jobs/*": ["src/jobs/*"],
+      "@prisma-generated": ["prisma/generated/client"],
+      "@prisma-generated/*": ["prisma/generated/client/*"]
     }
   }
 }

@@ -16,7 +16,12 @@ export function setupSwagger(app: INestApplication): void {
       'access-token',
     )
     .addApiKey(
-      { type: 'apiKey', in: 'header', name: 'Idempotency-Key', description: 'Idempotency key (UUID v4) for wallet top-up and ticket purchase' },
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'Idempotency-Key',
+        description: 'Idempotency key (UUID v4) for wallet top-up and ticket purchase',
+      },
       'idempotency-key',
     )
     .build();

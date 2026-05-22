@@ -4,8 +4,14 @@ const envSchema = z.object({
   // Runtime
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().regex(/^\d+$/).transform(Number).default('3000'),
+  APP_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
   API_PREFIX: z.string().default('api'),
   CORS_ORIGINS: z.string().default('*'), // comma-separated list in prod
+  IDEMPOTENCY_TTL_MS: z.string().regex(/^\d+$/).transform(Number).default('86400000'),
+  OTP_TTL_MINUTES: z.string().regex(/^\d+$/).transform(Number).default('10'),
+  OTP_MAX_ATTEMPTS: z.string().regex(/^\d+$/).transform(Number).default('5'),
+  OTP_RESEND_SECONDS: z.string().regex(/^\d+$/).transform(Number).default('60'),
+  AUTH_CLOCK_SKEW_SECONDS: z.string().regex(/^\d+$/).transform(Number).default('30'),
 
   // Database
   DATABASE_URL: z.string().url(),
@@ -18,19 +24,47 @@ const envSchema = z.object({
 
   // SMS / OTP
   SMS_PROVIDER_API_KEY: z.string().optional(),
-  SMS_PROVIDER_URL: z.string().url().optional(),
+  SMS_PROVIDER_URL: z.string().url().default('https://smsethiopia.com/api/sms/send'),
 
   // Payment
   PAYMENT_WEBHOOK_SECRET: z.string().min(16).optional(),
+  MIN_TOPUP_AMOUNT: z.string().regex(/^\d+$/).transform(Number).default('1000'),
+  MAX_TOPUP_AMOUNT: z.string().regex(/^\d+$/).transform(Number).default('1000000'),
+  CHAPA_SECRET_KEY: z.string().optional(),
+  CHAPA_BASE_URL: z.string().url().default('https://api.chapa.co/v1'),
+  CHAPA_CALLBACK_URL: z.string().url().optional(),
+  CHAPA_RETURN_URL: z.string().url().optional(),
+  CHAPA_WEBHOOK_SECRET: z.string().optional(),
 
-  // QR signing — PROPOSAL: HMAC-SHA256; confirm before tickets module
-  QR_SIGNING_SECRET: z.string().min(32).optional(),
+  // QR signing — HMAC-SHA256
+  QR_SIGNING_SECRET: z.string().min(32),
 
   // Jobs
-  ENABLE_CRON: z.string().transform((v) => v === 'true').default('false'),
+  ENABLE_CRON: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
 
   // Swagger
-  SWAGGER_ENABLED: z.string().transform((v) => v === 'true').default('true'),
+  SWAGGER_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
+
+  // Firebase / Push Notifications
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(),
+
+  // ML Subsystem (Python FastAPI sidecar)
+  ML_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  ML_SERVICE_ROUTE_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).default('3000'),
+  ML_SERVICE_ANOMALY_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).default('1500'),
+  ML_SERVICE_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
+  ML_SERVICE_TOKEN: z.string().optional(),
 });
 
 export type EnvironmentVariables = z.infer<typeof envSchema>;
