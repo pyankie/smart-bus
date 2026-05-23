@@ -116,7 +116,7 @@ export class ValidationService {
     }
 
     // Step 5 — usage check
-    if (ticket.status === TicketStatus.USED) {
+    if (!isInspection && (ticket.status === TicketStatus.USED)) {
       await this.logScan({
         driverId,
         ticketId: ticket.id,
