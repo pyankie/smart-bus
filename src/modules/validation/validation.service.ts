@@ -316,6 +316,14 @@ export class ValidationService {
               fareAmount: true,
               passengerId: true,
               passenger: { select: { fullName: true } },
+              dropoffStop: {
+                select: {
+                  id: true,
+                  name: true,
+                  latitude: true,
+                  longitude: true,
+                },
+              },
             },
           },
         },
@@ -342,7 +350,7 @@ export class ValidationService {
     const shaped = items.map(({ ticket, ...scan }) => ({
       ...scan,
       passenger: ticket.passenger,
-      ticket: { id: ticket.id, fareAmount: ticket.fareAmount },
+      ticket: { id: ticket.id, fareAmount: ticket.fareAmount, dropoffStop: ticket.dropoffStop },
       isPreviouslySeen: scanOrder.get(scan.id) ?? false,
     }));
 
