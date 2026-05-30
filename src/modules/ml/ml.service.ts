@@ -143,8 +143,8 @@ export class MlService {
       });
 
       const routeMetadata = {
-        estimatedDuration: route.estimatedDuration,
-        estimatedDistance: route.estimatedDistance,
+        estimatedDuration: route.estimatedDuration ?? 0,
+        estimatedDistance: route.estimatedDistance ?? 0,
         totalStops: route.stops.length,
       };
 
