@@ -419,9 +419,9 @@ model Trip {
 // =====================================================================
 
 model ScanEvent {
-  id       String @id @default(uuid())
-  ticketId String @map("ticket_id")
-  ticket   Ticket @relation(fields: [ticketId], references: [id])
+  id       String  @id @default(uuid())
+  ticketId String? @map("ticket_id")
+  ticket   Ticket? @relation(fields: [ticketId], references: [id])
 
   driverId String @map("driver_id")
   driver   User   @relation("DriverScans", fields: [driverId], references: [id])

@@ -3,7 +3,7 @@ import {
   ConflictException,
   GoneException,
   Injectable,
-  Logger,
+  Logger, NotFoundException,
 } from '@nestjs/common';
 import { ScanResult, TicketStatus } from '@prisma-generated/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -77,7 +77,12 @@ export class ValidationService {
     });
 
     const activeTrip = await this.tripsService.getActiveTrip(driverId);
-    const tripId = activeTrip?.id ?? null;
+
+    if (!activeTrip) {
+      throw new NotFoundException('You have to start a trip in order to scan passengers');
+    }
+
+    const tripId = activeTrip.id ?? null;
 
     if (!ticket) {
       await this.logScan({
@@ -87,6 +92,7 @@ export class ValidationService {
         result: ScanResult.INVALID_SIGNATURE,
         isInspection,
         scannedAt,
+        metadata: { ticketId: parsed.ticketId },
       });
       throw new BadRequestException('Ticket not found');
     }
@@ -333,7 +339,7 @@ export class ValidationService {
 
     // Build a set of passengerIds seen before each item (ordered by scannedAt)
     const allPassengerScans = await this.prisma.scanEvent.findMany({
-      where: { tripId, isInspection: false },
+      where: { tripId, isInspection: false, ticketId: { not: null } },
       orderBy: { scannedAt: 'asc' },
       select: { id: true, ticket: { select: { passengerId: true } } },
     });
@@ -342,15 +348,15 @@ export class ValidationService {
     const scanOrder = new Map<string, boolean>();
 
     for (const scan of allPassengerScans) {
-      const pid = scan.ticket.passengerId;
+      const pid = scan.ticket!.passengerId;
       scanOrder.set(scan.id, seenBefore.has(pid));
       seenBefore.set(pid, true);
     }
 
     const shaped = items.map(({ ticket, ...scan }) => ({
       ...scan,
-      passenger: ticket.passenger,
-      ticket: { id: ticket.id, fareAmount: ticket.fareAmount, dropoffStop: ticket.dropoffStop },
+      passenger: ticket!.passenger,
+      ticket: { id: ticket!.id, fareAmount: ticket!.fareAmount, dropoffStop: ticket!.dropoffStop },
       isPreviouslySeen: scanOrder.get(scan.id) ?? false,
     }));
 
@@ -369,6 +375,7 @@ export class ValidationService {
     result: ScanResult;
     isInspection: boolean;
     scannedAt: Date;
+    metadata?: any;
   }): Promise<string | null> {
     if (!params.ticketId) return null; // ScanEvent.ticketId is non-nullable — skip if unknown
     const created = await this.prisma.scanEvent.create({
@@ -380,6 +387,7 @@ export class ValidationService {
         isInspection: params.isInspection,
         isOffline: false,
         scannedAt: params.scannedAt,
+        metadata: params.metadata,
       },
       select: { id: true },
     });

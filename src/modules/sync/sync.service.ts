@@ -107,7 +107,7 @@ export class SyncService {
     // Step 3: Find ticket
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
-      select: { id: true, status: true, expiresAt: true, usedAt: true },
+      select: { id: true, status: true, expiresAt: true, usedAt: true, passengerId: true, fareAmount: true },
     });
 
     if (!ticket) {
@@ -259,10 +259,42 @@ export class SyncService {
     }
 
     // Mark ticket as USED with the device's offline timestamp
-    await this.prisma.ticket.update({
-      where: { id: ticketId },
-      data: { status: TicketStatus.USED, usedAt: scannedAt },
-    });
+    if (ticket.status === TicketStatus.REFUNDED) {
+      // If ticket was refunded (likely due to expiry job), we must reverse the refund
+      // because the passenger actually boarded before the expiry job ran.
+      await this.prisma.$transaction(async (tx) => {
+        await tx.ticket.update({
+          where: { id: ticketId },
+          data: { status: TicketStatus.USED, usedAt: scannedAt, refundedAt: null },
+        });
+
+        // Debit the wallet back since the refund is now invalid
+        await tx.wallet.update({
+          where: { userId: ticket?.passengerId },
+          data: { balance: { decrement: ticket.fareAmount } },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            wallet: { connect: { userId: ticket.passengerId } },
+            type: 'ADJUSTMENT',
+            status: 'COMPLETED',
+            amount: ticket.fareAmount,
+            ticketId,
+            description: {
+              en: 'Refund reversed: Offline scan verified boarding before expiry',
+              am: 'ተመላሽ ተሰርዟል፡ ከመቃጠሉ በፊት መሳፈራቸው በኦፍላይን ስካን ተረጋግጧል',
+            },
+          },
+        });
+      });
+
+    } else {
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: TicketStatus.USED, usedAt: scannedAt },
+      });
+    }
     await this.prisma.scanEvent.create({
       data: {
         ticketId,
