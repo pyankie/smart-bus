@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMinSize, IsArray, IsISO8601, IsString, IsUUID } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ArrayMinSize, IsArray, IsISO8601, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class RouteAssignmentRequestDto {
   @IsString()
@@ -15,6 +16,50 @@ export class RouteAssignmentRequestDto {
   @ArrayMinSize(1)
   @ApiProperty({ type: [String], description: 'Candidate driver IDs to rank' })
   candidateDriverIds!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InlineDriverProfileDto)
+  @ApiPropertyOptional({ type: () => [InlineDriverProfileDto] })
+  inlineDriverProfiles?: InlineDriverProfileDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RouteMetadataDto)
+  @ApiPropertyOptional({ type: () => RouteMetadataDto })
+  routeMetadata?: RouteMetadataDto;
+}
+
+export class InlineDriverProfileDto {
+  @IsString()
+  @ApiProperty()
+  driverId!: string;
+
+  @IsString()
+  @ApiProperty()
+  driverName!: string;
+
+  @IsString()
+  @ApiProperty()
+  driverStatus!: string;
+
+  @ApiProperty()
+  completedTripsOnRoute!: number;
+
+  @ApiProperty()
+  totalTripsOnRoute!: number;
+}
+
+export class RouteMetadataDto {
+  @ApiProperty()
+  estimatedDuration!: number;
+
+  @ApiProperty()
+  estimatedDistance!: number;
+
+  @ApiProperty()
+  totalStops!: number;
 }
 
 export class DriverSuggestionDto {
