@@ -1,0 +1,32 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../",
+  "roots": ["<rootDir>/test/unit"],
+  "testRegex": ".*\\.spec\\.ts$",
+  "transform": {
+    "^(?!.*prisma/generated).+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "isolatedModules": true,
+        "diagnostics": false
+      }
+    ]
+  },
+  "transformIgnorePatterns": ["/node_modules/", "/prisma/generated/"],
+  "moduleNameMapper": {
+    "^@prisma-generated/client$": "<rootDir>/prisma/generated/client",
+    "^@prisma-generated/client/(.*)$": "<rootDir>/prisma/generated/client/$1",
+    "^@common/(.*)$": "<rootDir>/src/common/$1",
+    "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+    "^@prisma-lib/(.*)$": "<rootDir>/src/prisma/$1",
+    "^@jobs/(.*)$": "<rootDir>/src/jobs/$1"
+  },
+  "collectCoverageFrom": [
+    "src/modules/sync/**/*.ts",
+    "src/modules/validation/**/*.ts",
+    "src/modules/wallet/**/*.ts",
+    "src/modules/analytics/**/*.ts"
+  ],
+  "coverageDirectory": "coverage/unit",
+  "testEnvironment": "node"
+}
