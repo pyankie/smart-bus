@@ -117,7 +117,15 @@
       "src/**/*.(t|j)s"
     ],
     "coverageDirectory": "coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "branches": 65,
+        "functions": 90,
+        "lines": 90,
+        "statements": 90
+      }
+    }
   },
   "lint-staged": {
     "*.ts": [
