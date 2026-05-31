@@ -265,6 +265,7 @@ export class AnalyticsService {
         JOIN users u ON t.driver_id = u.id
         WHERE t.scheduled_for >= ${from}
           AND t.scheduled_for <= ${to}
+          AND t.status = 'COMPLETED'
           ${query.routeId ? Prisma.sql`AND t.route_id = ${query.routeId}::uuid` : Prisma.empty}
           ${query.driverId ? Prisma.sql`AND t.driver_id = ${query.driverId}::uuid` : Prisma.empty}
         GROUP BY t.driver_id, u.full_name
