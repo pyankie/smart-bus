@@ -14,8 +14,6 @@ describe('ValidationService', () => {
   let prisma: MockPrismaService;
   let qrService: QrService;
   let tripsService: TripsService;
-  let mlService: MlService;
-  let anomalyService: AnomalyService;
 
   const mockDriverId = 'driver-123';
   const mockTicketId = 'ticket-456';
@@ -57,9 +55,7 @@ describe('ValidationService', () => {
     prisma = module.get<PrismaService>(PrismaService) as unknown as MockPrismaService;
     qrService = module.get<QrService>(QrService);
     tripsService = module.get<TripsService>(TripsService);
-    mlService = module.get<MlService>(MlService);
-    anomalyService = module.get<AnomalyService>(AnomalyService);
-    
+
     prisma.scanEvent.create.mockResolvedValue({ id: 'scan-id' } as any);
   });
 
@@ -85,6 +81,18 @@ describe('ValidationService', () => {
           data: expect.objectContaining({ result: ScanResult.INVALID_SIGNATURE }),
         }),
       );
+    });
+
+    it('should throw BadRequestException if qrPayload is not valid JSON', async () => {
+      const invalidJsonDto = { ...validDto, qrPayload: 'not-json' };
+      
+      await expect(service.validateTicket(mockDriverId, invalidJsonDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if ticketId is missing in payload', async () => {
+      const missingIdDto = { ...validDto, qrPayload: JSON.stringify({ other: 'data' }) };
+      
+      await expect(service.validateTicket(mockDriverId, missingIdDto)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if no active trip', async () => {
@@ -161,6 +169,20 @@ describe('ValidationService', () => {
           data: expect.objectContaining({ result: ScanResult.VALID }),
         }),
       );
+    });
+
+    it('should throw InternalServerErrorException if database fails during ticket lookup', async () => {
+      prisma.ticket.findUnique.mockRejectedValueOnce(new Error('DB Error'));
+      
+      await expect(service.validateTicket(mockDriverId, validDto))
+        .rejects.toThrow();
+    });
+
+    it('should throw BadRequestException if qrPayload is an empty string', async () => {
+      const emptyPayloadDto = { ...validDto, qrPayload: '' };
+      
+      await expect(service.validateTicket(mockDriverId, emptyPayloadDto))
+        .rejects.toThrow(BadRequestException);
     });
 
     it('should handle race condition and throw ConflictException', async () => {
