@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
 import { IdempotencyGuard } from './guards/idempotency.guard';
 import { IdempotencyInterceptor } from './interceptors/idempotency.interceptor';
 
@@ -10,6 +11,7 @@ import { IdempotencyInterceptor } from './interceptors/idempotency.interceptor';
  * and do not need to be imported separately.
  */
 @Module({
+  imports: [PrismaModule],
   providers: [IdempotencyGuard, IdempotencyInterceptor],
   exports: [IdempotencyGuard, IdempotencyInterceptor],
 })

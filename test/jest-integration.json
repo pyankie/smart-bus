@@ -1,0 +1,25 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../",
+  "roots": ["<rootDir>/test/integration"],
+  "testRegex": ".*\\.integration\\.spec\\.ts$",
+  "transform": {
+    "^(?!.*prisma/generated).+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "isolatedModules": true,
+        "diagnostics": false
+      }
+    ]
+  },
+  "transformIgnorePatterns": ["/node_modules/", "/prisma/generated/"],
+  "moduleNameMapper": {
+    "^@prisma-generated/client$": "<rootDir>/prisma/generated/client",
+    "^@prisma-generated/client/(.*)$": "<rootDir>/prisma/generated/client/$1",
+    "^@common/(.*)$": "<rootDir>/src/common/$1",
+    "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+    "^@prisma-lib/(.*)$": "<rootDir>/src/prisma/$1",
+    "^@jobs/(.*)$": "<rootDir>/src/jobs/$1"
+  },
+  "testEnvironment": "node"
+}

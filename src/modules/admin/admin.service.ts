@@ -222,6 +222,108 @@ export class AdminService {
     return user;
   }
 
+  async getDriverMetrics(driverId: string) {
+    const driver = await this.usersService.findById(driverId);
+    if (!driver || driver.role !== UserRole.DRIVER) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const trips = await this.prisma.trip.findMany({
+      where: { driverId },
+      include: {
+        _count: {
+          select: {
+            scanEvents: { where: { result: ScanResult.VALID, isInspection: false } },
+          },
+        },
+      },
+    });
+
+    const totalTrips = trips.length;
+    if (totalTrips === 0) {
+      return {
+        tripCompletionRate: 0,
+        averageTripDelayMinutes: 0,
+        averagePassengerLoad: 0,
+        recentAssignmentCount: 0,
+        anomalyRate: 0,
+      };
+    }
+
+    const completedTrips = trips.filter((t) => t.status === TripStatus.COMPLETED);
+    const tripCompletionRate = completedTrips.length / totalTrips;
+
+    const startedTrips = trips.filter((t) => t.startedAt != null);
+    let totalDelayMinutes = 0;
+    for (const trip of startedTrips) {
+      const scheduled = trip.scheduledFor.getTime();
+      const started = trip.startedAt!.getTime();
+      const delay = (started - scheduled) / (1000 * 60);
+      if (delay > 0) totalDelayMinutes += delay;
+    }
+    const averageTripDelayMinutes =
+      startedTrips.length > 0 ? totalDelayMinutes / startedTrips.length : 0;
+
+    const totalPassengers = completedTrips.reduce((sum, t) => sum + t._count.scanEvents, 0);
+    const averagePassengerLoad =
+      completedTrips.length > 0 ? totalPassengers / completedTrips.length : 0;
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentAssignmentCount = trips.filter((t) => t.scheduledFor >= sevenDaysAgo).length;
+
+    // anomaly_rate: Cancellation + severe delay ratio (>= 30 mins)
+    let anomalyCount = 0;
+    for (const trip of trips) {
+      if (trip.status === TripStatus.CANCELLED) {
+        anomalyCount++;
+      } else if (trip.startedAt != null) {
+        const scheduled = trip.scheduledFor.getTime();
+        const started = trip.startedAt.getTime();
+        const delayMinutes = (started - scheduled) / (1000 * 60);
+        if (delayMinutes >= 30) {
+          anomalyCount++;
+        }
+      }
+    }
+    const anomalyRate = totalTrips > 0 ? anomalyCount / totalTrips : 0;
+
+    // peak_hour_binary: Ratio of trips scheduled during rush hour (7-9 AM, 4-7 PM)
+    // We'll return it as a historical ratio (peakHourRatio) and a binary for their next/current trip.
+    let peakHourTrips = 0;
+    for (const trip of trips) {
+      const hour = trip.scheduledFor.getHours();
+      const isMorningPeak = hour >= 7 && hour < 9;
+      const isEveningPeak = hour >= 16 && hour < 19;
+      if (isMorningPeak || isEveningPeak) {
+        peakHourTrips++;
+      }
+    }
+    const peakHourRatio = totalTrips > 0 ? peakHourTrips / totalTrips : 0;
+    
+    // Determine if they are *currently* or *next* scheduled in a peak hour for the binary flag
+    const upcomingTrips = trips.filter(t => t.status === TripStatus.SCHEDULED || t.status === TripStatus.IN_PROGRESS);
+    let peakHourBinary = 0;
+    if (upcomingTrips.length > 0) {
+      // Sort to get the most relevant upcoming/current trip
+      upcomingTrips.sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime());
+      const nextTripHour = upcomingTrips[0].scheduledFor.getHours();
+      if ((nextTripHour >= 7 && nextTripHour < 9) || (nextTripHour >= 16 && nextTripHour < 19)) {
+        peakHourBinary = 1;
+      }
+    }
+
+    return {
+      tripCompletionRate,
+      averageTripDelayMinutes,
+      averagePassengerLoad,
+      recentAssignmentCount,
+      anomalyRate,
+      peakHourRatio,
+      peakHourBinary,
+    };
+  }
+
   // ─── Route Management ──────────────────────────────────────────────────────
 
   async createRoute(actorId: string, dto: CreateRouteDto, ip?: string) {

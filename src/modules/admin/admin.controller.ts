@@ -61,6 +61,14 @@ export class AdminController {
     return this.admin.getUserById(id);
   }
 
+  @Get('users/:id/metrics')
+  @ApiOperation({ summary: 'Get driver KPI metrics' })
+  @ApiResponse({ status: 200 })
+  @ApiResponse({ status: 404 })
+  getDriverMetrics(@Param('id', ParseUUIDPipe) id: string) {
+    return this.admin.getDriverMetrics(id);
+  }
+
   @Post('users')
   @ApiOperation({ summary: 'Create a user (skips OTP; created with ACTIVE status)' })
   @ApiResponse({ status: 201 })

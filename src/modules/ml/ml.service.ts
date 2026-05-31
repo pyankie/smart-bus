@@ -31,11 +31,14 @@ export class MlService {
       return this.fallbackRouteSuggestions(payload);
     }
 
+    // Enrich payload with inline stats to bypass ML CSV lookup mismatch
+    const enrichedPayload = await this.enrichWithInlineStats(payload);
+
     const url = `${this.serviceUrl()}/api/v1/ml/route-assignment`;
     const timeoutMs = this.config.get<number>('app.ml.routeTimeoutMs') ?? 3000;
 
     try {
-      const response = await this.post(url, payload, timeoutMs);
+      const response = await this.post(url, enrichedPayload, timeoutMs);
       if (!response.ok) {
         this.logger.warn(`ML route-assignment returned ${response.status}, using fallback`);
         return this.fallbackRouteSuggestions(payload);
@@ -98,7 +101,59 @@ export class MlService {
     }
   }
 
-  // ─── Private: Fallback heuristics ─────────────────────────────────────────
+  // ─── Private: Fallback heuristics & Enrichment ──────────────────────────
+
+  private async enrichWithInlineStats(payload: RouteAssignmentRequestDto): Promise<RouteAssignmentRequestDto> {
+    try {
+      const [route, drivers, trips] = await Promise.all([
+        this.prisma.route.findUnique({
+          where: { id: payload.routeId },
+          select: { estimatedDuration: true, estimatedDistance: true, stops: { select: { id: true } } },
+        }),
+        this.prisma.user.findMany({
+          where: { id: { in: payload.candidateDriverIds }, role: UserRole.DRIVER, deletedAt: null },
+          select: { id: true, fullName: true, status: true },
+        }),
+        this.prisma.trip.groupBy({
+          by: ['driverId', 'status'],
+          where: { driverId: { in: payload.candidateDriverIds }, routeId: payload.routeId },
+          _count: { _all: true },
+        }),
+      ]);
+
+      if (!route) return payload;
+
+      const stats = new Map<string, { completed: number; total: number }>();
+      for (const t of trips) {
+        const cur = stats.get(t.driverId) ?? { completed: 0, total: 0 };
+        cur.total += t._count._all;
+        if (t.status === TripStatus.COMPLETED) cur.completed += t._count._all;
+        stats.set(t.driverId, cur);
+      }
+
+      const inlineDriverProfiles = drivers.map((d) => {
+        const s = stats.get(d.id) ?? { completed: 0, total: 0 };
+        return {
+          driverId: d.id,
+          driverName: d.fullName,
+          driverStatus: d.status,
+          completedTripsOnRoute: s.completed,
+          totalTripsOnRoute: s.total,
+        };
+      });
+
+      const routeMetadata = {
+        estimatedDuration: route.estimatedDuration ?? 0,
+        estimatedDistance: route.estimatedDistance ?? 0,
+        totalStops: route.stops.length,
+      };
+
+      return { ...payload, inlineDriverProfiles, routeMetadata };
+    } catch (err) {
+      this.logger.warn(`Failed to compute inline ML stats (${(err as Error).message}), sending basic payload`);
+      return payload;
+    }
+  }
 
   /**
    * Prisma-backed fallback ranking: for each candidate driver, count completed

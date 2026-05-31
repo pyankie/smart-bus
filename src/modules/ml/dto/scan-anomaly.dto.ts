@@ -34,22 +34,34 @@ class StopContextDto {
 export class ScanAnomalyRequestDto {
   @IsString() @IsNotEmpty() @ApiProperty() eventId!: string;
 
-  @IsIn(['VALID', 'EXPIRED', 'ALREADY_USED', 'INVALID_SIGNATURE', 'INSPECTION_ONLY'])
+  @IsIn(['VALID', 'EXPIRED', 'ALREADY_USED', 'INVALID_SIGNATURE', 'INSPECTION_ONLY', 'NOT_FOUND'])
   @ApiProperty()
-  result!: 'VALID' | 'EXPIRED' | 'ALREADY_USED' | 'INVALID_SIGNATURE' | 'INSPECTION_ONLY';
+  result!:
+    | 'VALID'
+    | 'EXPIRED'
+    | 'ALREADY_USED'
+    | 'INVALID_SIGNATURE'
+    | 'INSPECTION_ONLY'
+    | 'NOT_FOUND';
 
   @IsBoolean() @ApiProperty() isOffline!: boolean;
   @IsISO8601() @ApiProperty() scannedAt!: string;
   @IsISO8601() @ApiProperty() syncedAt!: string;
   @IsNumber() @ApiProperty() syncDelaySeconds!: number;
 
-  @ValidateNested() @Type(() => ScanMetadataDto) @ApiProperty({ type: ScanMetadataDto })
+  @ValidateNested()
+  @Type(() => ScanMetadataDto)
+  @ApiProperty({ type: ScanMetadataDto })
   scanMetadata!: ScanMetadataDto;
 
-  @ValidateNested() @Type(() => TicketContextDto) @ApiProperty({ type: TicketContextDto })
+  @ValidateNested()
+  @Type(() => TicketContextDto)
+  @ApiProperty({ type: TicketContextDto })
   ticketContext!: TicketContextDto;
 
-  @ValidateNested() @Type(() => StopContextDto) @ApiProperty({ type: StopContextDto })
+  @ValidateNested()
+  @Type(() => StopContextDto)
+  @ApiProperty({ type: StopContextDto })
   boardingStop!: StopContextDto;
 }
 

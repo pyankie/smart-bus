@@ -12,11 +12,14 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
+    "test": "jest --projects ./test/jest-unit.json ./test/jest-integration.json ./test/jest-simulation.json",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:unit": "jest --config ./test/jest-unit.json",
+    "test:integration": "jest --config ./test/jest-integration.json",
+    "test:simulation": "jest --config ./test/jest-simulation.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
@@ -43,6 +46,7 @@
     "csv-stringify": "^6.7.0",
     "firebase-admin": "^13.8.0",
     "helmet": "^8.0.0",
+    "jest-mock-extended": "^4.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -113,7 +117,15 @@
       "src/**/*.(t|j)s"
     ],
     "coverageDirectory": "coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "branches": 65,
+        "functions": 90,
+        "lines": 90,
+        "statements": 90
+      }
+    }
   },
   "lint-staged": {
     "*.ts": [

@@ -173,7 +173,7 @@ npm run start:prod
 
 The API is available at `http://localhost:3000/api/v1`.
 
-Swagger UI is at `http://localhost:3000/api/docs` when `SWAGGER_ENABLED=true`.
+Swagger UI is at `http://localhost:3000/docs` when `SWAGGER_ENABLED=true`.
 
 ---
 
