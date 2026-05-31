@@ -183,7 +183,7 @@ export class TicketsService {
       await this.notificationsService.sendPush(
         driverId,
         'Drop Requested',
-        `A passenger is requesting to drop off at ${stopName}`,
+        `A passenger is requesting to drop off.`,
         { ticketId, stopName },
       );
     } catch {
