@@ -70,6 +70,7 @@ enum ScanResult {
   ALREADY_USED
   INVALID_SIGNATURE
   INSPECTION_ONLY
+  NOT_FOUND
 }
 
 enum NotificationChannel {
